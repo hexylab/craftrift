@@ -48,12 +48,23 @@ export class World {
     const cy = this.toChunkCoord(wy);
     const cz = this.toChunkCoord(wz);
     const chunk = this.getOrCreateChunk(cx, cy, cz);
-    chunk.setBlock(
-      this.toLocalCoord(wx),
-      this.toLocalCoord(wy),
-      this.toLocalCoord(wz),
-      type,
-    );
+    const lx = this.toLocalCoord(wx);
+    const ly = this.toLocalCoord(wy);
+    const lz = this.toLocalCoord(wz);
+    chunk.setBlock(lx, ly, lz, type);
+
+    // Mark adjacent chunks dirty if at chunk boundary
+    if (lx === 0) this.markDirty(cx - 1, cy, cz);
+    if (lx === CHUNK_SIZE - 1) this.markDirty(cx + 1, cy, cz);
+    if (ly === 0) this.markDirty(cx, cy - 1, cz);
+    if (ly === CHUNK_SIZE - 1) this.markDirty(cx, cy + 1, cz);
+    if (lz === 0) this.markDirty(cx, cy, cz - 1);
+    if (lz === CHUNK_SIZE - 1) this.markDirty(cx, cy, cz + 1);
+  }
+
+  private markDirty(cx: number, cy: number, cz: number): void {
+    const chunk = this.getChunk(cx, cy, cz);
+    if (chunk) chunk.dirty = true;
   }
 
   isSolidBlock(wx: number, wy: number, wz: number): boolean {
