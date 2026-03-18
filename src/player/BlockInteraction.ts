@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { World } from '../world/World';
 import { BlockType, isSolid, isDestructible } from '../world/Block';
+import { PLAYER_WIDTH, PLAYER_HEIGHT } from './Player';
 
 export interface RaycastHit {
   blockX: number;
@@ -115,8 +116,8 @@ export class BlockInteraction {
     const py = hit.blockY + hit.normalY;
     const pz = hit.blockZ + hit.normalZ;
     if (isSolid(this.world.getBlock(px, py, pz))) return false;
-    const HALF_W = 0.3;
-    const P_HEIGHT = 1.8;
+    const HALF_W = PLAYER_WIDTH / 2;
+    const P_HEIGHT = PLAYER_HEIGHT;
     if (
       px + 1 > playerX - HALF_W && px < playerX + HALF_W &&
       py + 1 > playerY && py < playerY + P_HEIGHT &&
