@@ -95,7 +95,7 @@ export class BlockInteraction {
     dirX: number, dirY: number, dirZ: number,
   ): RaycastHit | null {
     const hit = castRay(this.world, eyeX, eyeY, eyeZ, dirX, dirY, dirZ, 5);
-    if (hit) {
+    if (hit && isDestructible(this.world.getBlock(hit.blockX, hit.blockY, hit.blockZ))) {
       this.highlightMesh.visible = true;
       this.highlightMesh.position.set(hit.blockX + 0.5, hit.blockY + 0.5, hit.blockZ + 0.5);
     } else {

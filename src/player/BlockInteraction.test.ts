@@ -36,6 +36,16 @@ describe('BlockInteraction - DDA Raycast', () => {
     const result = castRay(world, 5.5, 5.5, 5.5, 0, 0, -1, 5);
     expect(result).toBeNull();
   });
+
+  it('castRay hits TOWER_BLOCK (solid)', () => {
+    const world = new World();
+    world.setBlock(5, 5, 5, BlockType.TOWER_BLOCK);
+    const hit = castRay(world, 5.5, 5.5, 3, 0, 0, 1, 5);
+    expect(hit).not.toBeNull();
+    expect(hit!.blockX).toBe(5);
+    expect(hit!.blockY).toBe(5);
+    expect(hit!.blockZ).toBe(5);
+  });
 });
 
 describe('BlockInteraction - breakBlock / placeBlock', () => {
