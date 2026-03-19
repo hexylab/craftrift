@@ -48,6 +48,57 @@
   border-radius: 8px;
   z-index: 20;
 ">Click to play<br><small>WASD: Move | Mouse: Look | Left Click: Break | Right Click: Place</small></div>
+  <div id="target-info" style="
+    display: none;
+    position: fixed;
+    bottom: 60%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    font-family: monospace;
+    text-align: center;
+    pointer-events: none;
+    z-index: 10;
+  ">
+    <div id="target-name" style="font-size: 14px; margin-bottom: 4px;"></div>
+    <div id="hp-bar-container" style="
+      width: 200px;
+      height: 8px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 4px;
+      overflow: hidden;
+    ">
+      <div id="hp-bar-fill" style="height: 100%; transition: width 0.1s;"></div>
+    </div>
+    <div id="hp-text" style="font-size: 12px; margin-top: 2px; opacity: 0.8;"></div>
+  </div>
+  <div id="combat-feedback" style="
+    display: none;
+    position: fixed;
+    top: 60%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ff6666;
+    font-family: monospace;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 10;
+  "></div>
+  <div id="victory-screen" style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    font-family: monospace;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 100;
+  ">
+    <h1 style="font-size: 4rem; color: #ffd700;">VICTORY</h1>
+    <p style="font-size: 1.2rem; margin-top: 1rem;">敵ネクサスを破壊した！</p>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
