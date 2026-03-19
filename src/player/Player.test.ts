@@ -56,4 +56,14 @@ describe('Player', () => {
     expect(PLAYER_WIDTH).toBeCloseTo(0.6);
     expect(PLAYER_HEIGHT).toBeCloseTo(1.8);
   });
+
+  describe('gravity', () => {
+    it('falls when no block below', () => {
+      const world = new World();
+      // プレイヤーを空中に配置（足元にブロックなし）
+      const player = new Player(5, 10, 5, world);
+      player.updatePhysics(1 / 60);
+      expect(player.y).toBeLessThan(10);
+    });
+  });
 });

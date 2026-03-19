@@ -5,11 +5,16 @@ export const PLAYER_HEIGHT = 1.8;
 export const PLAYER_EYE_HEIGHT = 1.6;
 const MOVE_SPEED = 4.3;
 const HALF_WIDTH = PLAYER_WIDTH / 2;
+export const GRAVITY = 32;
+export const JUMP_VELOCITY = 9.0;
+const TERMINAL_VELOCITY = 78.4;
 
 export class Player {
   x: number;
   y: number;
   z: number;
+  velocityY = 0;
+  onGround = false;
 
   constructor(x: number, y: number, z: number, private world: World) {
     this.x = x;
@@ -26,6 +31,40 @@ export class Player {
 
     if (dx !== 0) {
       this.x = this.moveAxis('x', dx * dist);
+    }
+  }
+
+  updatePhysics(dt: number): void {
+    this.velocityY -= GRAVITY * dt;
+    this.velocityY = Math.max(this.velocityY, -TERMINAL_VELOCITY);
+    this.moveAxisY(this.velocityY * dt);
+  }
+
+  private moveAxisY(delta: number): void {
+    if (delta === 0) return;
+    const STEP = PLAYER_WIDTH / 2;
+    let remaining = Math.abs(delta);
+    const sign = delta > 0 ? 1 : -1;
+    let hitBlock = false;
+
+    while (remaining > 0) {
+      const step = Math.min(remaining, STEP);
+      const nextY = this.y + sign * step;
+      if (this.collides(this.x, nextY, this.z)) {
+        hitBlock = true;
+        break;
+      }
+      this.y = nextY;
+      remaining -= step;
+    }
+
+    if (hitBlock) {
+      if (delta < 0) {
+        this.onGround = true;
+      }
+      this.velocityY = 0;
+    } else {
+      this.onGround = false;
     }
   }
 
