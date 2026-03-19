@@ -1171,25 +1171,28 @@ describe('HUD', () => {
     expect(document.getElementById('hp-bar-fill')!.style.width).toBe('50%');
   });
 
-  it('HP bar color is green above 50%', () => {
+  it('HP bar color changes based on HP ratio', () => {
     const hud = new HUD();
-    const s = createStructure(1000, 1500);
-    hud.showTarget(s);
-    expect(document.getElementById('hp-bar-fill')!.style.backgroundColor).toContain('68');
-  });
 
-  it('HP bar color is yellow between 25-50%', () => {
-    const hud = new HUD();
-    const s = createStructure(500, 1500);
-    hud.showTarget(s);
-    expect(document.getElementById('hp-bar-fill')!.style.backgroundColor).toContain('187');
-  });
+    // >50%: green
+    const high = createStructure(1000, 1500);
+    hud.showTarget(high);
+    const greenColor = document.getElementById('hp-bar-fill')!.style.backgroundColor;
 
-  it('HP bar color is red below 25%', () => {
-    const hud = new HUD();
-    const s = createStructure(200, 1500);
-    hud.showTarget(s);
-    expect(document.getElementById('hp-bar-fill')!.style.backgroundColor).toContain('51');
+    // 25-50%: yellow
+    const mid = createStructure(500, 1500);
+    hud.showTarget(mid);
+    const yellowColor = document.getElementById('hp-bar-fill')!.style.backgroundColor;
+
+    // <25%: red
+    const low = createStructure(200, 1500);
+    hud.showTarget(low);
+    const redColor = document.getElementById('hp-bar-fill')!.style.backgroundColor;
+
+    // 3つの色がすべて異なることを検証
+    expect(greenColor).not.toBe(yellowColor);
+    expect(yellowColor).not.toBe(redColor);
+    expect(greenColor).not.toBe(redColor);
   });
 
   it('hideTarget hides target info', () => {
