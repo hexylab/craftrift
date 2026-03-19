@@ -134,5 +134,32 @@ describe('Player', () => {
       player.jump();
       expect(player.velocityY).toBe(0);
     });
+
+    it('reaches approximately 1.27 blocks height', () => {
+      const world = new World();
+      for (let x = 4; x <= 6; x++) {
+        for (let z = 4; z <= 6; z++) {
+          world.setBlock(x, 5, z, BlockType.STONE);
+        }
+      }
+      const player = new Player(5, 7, 5, world);
+      // 着地させる
+      for (let i = 0; i < 120; i++) {
+        player.updatePhysics(1 / 60);
+      }
+      const groundY = player.y;
+      player.jump();
+      // 60fpsでジャンプをシミュレーション
+      let maxY = player.y;
+      for (let i = 0; i < 120; i++) {
+        player.updatePhysics(1 / 60);
+        if (player.y > maxY) maxY = player.y;
+      }
+      const jumpHeight = maxY - groundY;
+      // 理論値 v²/(2g) = 9²/(2*32) ≈ 1.27
+      // 離散シミュレーションのため許容範囲 1.1～1.3
+      expect(jumpHeight).toBeGreaterThan(1.1);
+      expect(jumpHeight).toBeLessThan(1.3);
+    });
   });
 });
