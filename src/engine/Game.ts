@@ -8,6 +8,9 @@ import { Player } from '../player/Player';
 import { BlockInteraction } from '../player/BlockInteraction';
 import { TextureAtlas } from '../utils/TextureLoader';
 import { buildChunkGeometryData } from '../world/ChunkMesher';
+import { CombatSystem } from '../entity/CombatSystem';
+import { HUD } from '../ui/HUD';
+import { Structure } from '../entity/Structure';
 
 export class Game {
   private renderer!: Renderer;
@@ -20,6 +23,10 @@ export class Game {
   private chunkMeshes = new Map<string, THREE.Mesh>();
   private lastTime = 0;
   private instructionsEl: HTMLElement | null = null;
+  private combatSystem!: CombatSystem;
+  private hud!: HUD;
+  private structures!: Structure[];
+  private gameOver = false;
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -38,7 +45,10 @@ export class Game {
     });
 
     this.world = new World();
-    generateARAMMap(this.world);
+    const { structures } = generateARAMMap(this.world);
+    this.structures = structures;
+    this.combatSystem = new CombatSystem();
+    this.hud = new HUD();
 
     this.player = new Player(
       SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z,
@@ -58,19 +68,17 @@ export class Game {
   private loop(time: number): void {
     const dt = Math.min((time - this.lastTime) / 1000, 0.05);
     this.lastTime = time;
-
-    this.update(dt);
+    this.update(dt, time);
     this.renderer.render();
-
     requestAnimationFrame((t) => this.loop(t));
   }
 
-  private update(dt: number): void {
+  private update(dt: number, time: number): void {
     if (this.instructionsEl) {
       this.instructionsEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
     }
-
     if (!this.input.isPointerLocked) return;
+    if (this.gameOver) return;
 
     const mouse = this.input.getMouseMovement();
     this.renderer.fpsCamera.rotate(mouse.x, mouse.y);
@@ -98,25 +106,60 @@ export class Game {
     );
 
     const dir = this.renderer.fpsCamera.getDirection();
+
+    const targetStructure = this.combatSystem.findTarget(
+      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+      dir.x, dir.y, dir.z,
+      this.structures,
+    );
+
     const hit = this.blockInteraction.update(
       this.player.eyeX, this.player.eyeY, this.player.eyeZ,
       dir.x, dir.y, dir.z,
     );
 
-    if (hit) {
-      if (this.input.consumeLeftClick()) {
+    const leftClick = this.input.consumeLeftClick();
+    if (leftClick) {
+      const result = this.combatSystem.tryAttack(targetStructure, time / 1000);
+
+      if (result.hit) {
+        this.hud.showDamage(result);
+        if (result.destroyed) {
+          result.target.removeBlocks(this.world);
+          this.rebuildDirtyChunks();
+          this.checkVictory();
+        }
+      } else if (result.reason === 'protected') {
+        this.hud.showProtected();
+      } else if (result.reason === 'no_target' && hit) {
         if (this.blockInteraction.breakBlock(hit)) {
           this.rebuildDirtyChunks();
         }
       }
-      if (this.input.consumeRightClick()) {
+    }
+
+    if (this.input.consumeRightClick()) {
+      if (hit) {
         if (this.blockInteraction.placeBlock(hit, this.player.x, this.player.y, this.player.z)) {
           this.rebuildDirtyChunks();
         }
       }
+    }
+
+    if (targetStructure) {
+      this.hud.showTarget(targetStructure);
     } else {
-      this.input.consumeLeftClick();
-      this.input.consumeRightClick();
+      this.hud.hideTarget();
+    }
+  }
+
+  private checkVictory(): void {
+    const redNexus = this.structures.find(s => s.id === 'red-nexus');
+    if (redNexus && !redNexus.isAlive) {
+      this.gameOver = true;
+      this.hud.hideTarget();
+      this.hud.showVictory();
+      document.exitPointerLock();
     }
   }
 
