@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Player, PLAYER_WIDTH, PLAYER_HEIGHT } from './Player';
+import { Player, PLAYER_WIDTH, PLAYER_HEIGHT, JUMP_VELOCITY } from './Player';
 import { World } from '../world/World';
 import { BlockType } from '../world/Block';
 
@@ -106,6 +106,33 @@ describe('Player', () => {
         player.updatePhysics(1 / 60);
       }
       expect(player.y).toBeCloseTo(yAfterLanding, 5);
+    });
+  });
+
+  describe('jump', () => {
+    it('can jump when on ground', () => {
+      const world = new World();
+      for (let x = 4; x <= 6; x++) {
+        for (let z = 4; z <= 6; z++) {
+          world.setBlock(x, 5, z, BlockType.STONE);
+        }
+      }
+      const player = new Player(5, 7, 5, world);
+      // 着地させる
+      for (let i = 0; i < 120; i++) {
+        player.updatePhysics(1 / 60);
+      }
+      expect(player.onGround).toBe(true);
+      player.jump();
+      expect(player.velocityY).toBe(JUMP_VELOCITY);
+    });
+
+    it('cannot jump when in air', () => {
+      const world = new World();
+      const player = new Player(5, 10, 5, world);
+      expect(player.onGround).toBe(false);
+      player.jump();
+      expect(player.velocityY).toBe(0);
     });
   });
 });

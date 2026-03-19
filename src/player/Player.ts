@@ -40,6 +40,12 @@ export class Player {
     this.moveAxisY(this.velocityY * dt);
   }
 
+  jump(): void {
+    if (this.onGround) {
+      this.velocityY = JUMP_VELOCITY;
+    }
+  }
+
   private moveAxisY(delta: number): void {
     if (delta === 0) return;
     const STEP = PLAYER_WIDTH / 2;
