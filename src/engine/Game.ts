@@ -56,7 +56,7 @@ export class Game {
   }
 
   private loop(time: number): void {
-    const dt = (time - this.lastTime) / 1000;
+    const dt = Math.min((time - this.lastTime) / 1000, 0.05);
     this.lastTime = time;
 
     this.update(dt);
@@ -74,6 +74,11 @@ export class Game {
 
     const mouse = this.input.getMouseMovement();
     this.renderer.fpsCamera.rotate(mouse.x, mouse.y);
+
+    if (this.input.isKeyDown('Space')) {
+      this.player.jump();
+    }
+    this.player.updatePhysics(dt);
 
     const forward = this.renderer.fpsCamera.getForward();
     const right = this.renderer.fpsCamera.getRight();
