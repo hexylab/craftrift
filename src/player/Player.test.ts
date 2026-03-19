@@ -65,5 +65,47 @@ describe('Player', () => {
       player.updatePhysics(1 / 60);
       expect(player.y).toBeLessThan(10);
     });
+
+    it('lands on a block and sets onGround', () => {
+      const world = new World();
+      // y=5 にブロックを敷く（ブロック上面 = y=6）
+      for (let x = 4; x <= 6; x++) {
+        for (let z = 4; z <= 6; z++) {
+          world.setBlock(x, 5, z, BlockType.STONE);
+        }
+      }
+      // プレイヤーを y=7 に配置（ブロック上面 y=6 の1ブロック上）
+      const player = new Player(5, 7, 5, world);
+      // 複数フレーム落下させる
+      for (let i = 0; i < 120; i++) {
+        player.updatePhysics(1 / 60);
+      }
+      expect(player.onGround).toBe(true);
+      expect(player.velocityY).toBe(0);
+      // ブロック上面(y=6)付近に着地しているはず
+      expect(player.y).toBeGreaterThanOrEqual(6);
+      expect(player.y).toBeLessThan(6.1);
+    });
+
+    it('does not fall when standing on ground', () => {
+      const world = new World();
+      // y=5 にブロックを敷く（ブロック上面 = y=6）
+      for (let x = 4; x <= 6; x++) {
+        for (let z = 4; z <= 6; z++) {
+          world.setBlock(x, 5, z, BlockType.STONE);
+        }
+      }
+      // まず着地させる
+      const player = new Player(5, 7, 5, world);
+      for (let i = 0; i < 120; i++) {
+        player.updatePhysics(1 / 60);
+      }
+      const yAfterLanding = player.y;
+      // さらに数フレーム実行してもY座標が変わらない
+      for (let i = 0; i < 60; i++) {
+        player.updatePhysics(1 / 60);
+      }
+      expect(player.y).toBeCloseTo(yAfterLanding, 5);
+    });
   });
 });
