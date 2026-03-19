@@ -77,15 +77,17 @@ export function generateARAMMap(world: World): MapResult {
 function createStructures(world: World): Structure[] {
   const STRUCTURE_Y = GRASS_Y + 1;
 
-  // Blue side
-  const blueT2 = new Structure('blue-t2', 'blue', 8, STRUCTURE_Y, 38, 'tower', TOWER_HP, 3, 6, 3, BlockType.TOWER_BLOCK, null);
-  const blueT1 = new Structure('blue-t1', 'blue', 8, STRUCTURE_Y, 71, 'tower', TOWER_HP, 3, 6, 3, BlockType.TOWER_BLOCK, blueT2);
-  const blueNexus = new Structure('blue-nexus', 'blue', 7, STRUCTURE_Y, 6, 'nexus', NEXUS_HP, 5, 4, 5, BlockType.NEXUS_BLOCK, blueT1);
+  // Blue side: T1(outer, z=71) → T2(inner, z=38) → Nexus(z=6)
+  // Red approaching from high-z attacks: T1 first, then T2, then Nexus
+  const blueT1 = new Structure('blue-t1', 'blue', 8, STRUCTURE_Y, 71, 'tower', TOWER_HP, 3, 6, 3, BlockType.BLUE_TOWER, null);
+  const blueT2 = new Structure('blue-t2', 'blue', 8, STRUCTURE_Y, 38, 'tower', TOWER_HP, 3, 6, 3, BlockType.BLUE_TOWER, blueT1);
+  const blueNexus = new Structure('blue-nexus', 'blue', 7, STRUCTURE_Y, 6, 'nexus', NEXUS_HP, 5, 4, 5, BlockType.BLUE_NEXUS, blueT2);
 
-  // Red side
-  const redT2 = new Structure('red-t2', 'red', 8, STRUCTURE_Y, 168, 'tower', TOWER_HP, 3, 6, 3, BlockType.TOWER_BLOCK, null);
-  const redT1 = new Structure('red-t1', 'red', 8, STRUCTURE_Y, 136, 'tower', TOWER_HP, 3, 6, 3, BlockType.TOWER_BLOCK, redT2);
-  const redNexus = new Structure('red-nexus', 'red', 7, STRUCTURE_Y, 198, 'nexus', NEXUS_HP, 5, 4, 5, BlockType.NEXUS_BLOCK, redT1);
+  // Red side: T1(outer, z=136) → T2(inner, z=168) → Nexus(z=198)
+  // Blue player approaching from low-z attacks: T1 first, then T2, then Nexus
+  const redT1 = new Structure('red-t1', 'red', 8, STRUCTURE_Y, 136, 'tower', TOWER_HP, 3, 6, 3, BlockType.RED_TOWER, null);
+  const redT2 = new Structure('red-t2', 'red', 8, STRUCTURE_Y, 168, 'tower', TOWER_HP, 3, 6, 3, BlockType.RED_TOWER, redT1);
+  const redNexus = new Structure('red-nexus', 'red', 7, STRUCTURE_Y, 198, 'nexus', NEXUS_HP, 5, 4, 5, BlockType.RED_NEXUS, redT2);
 
   const all = [blueNexus, blueT1, blueT2, redT2, redT1, redNexus];
   for (const s of all) {

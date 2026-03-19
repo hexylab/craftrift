@@ -70,25 +70,38 @@ describe('MapData', () => {
     expect((blueT2.z + redT2.z + redT2.depth) / 2).toBeCloseTo(104.5, 0);
   });
 
-  it('red tower blocks are TOWER_BLOCK', () => {
-    const redT2 = structures.find(s => s.id === 'red-t2')!;
-    expect(world.getBlock(redT2.x, redT2.y, redT2.z)).toBe(BlockType.TOWER_BLOCK);
+  it('red tower blocks are RED_TOWER', () => {
+    const redT1 = structures.find(s => s.id === 'red-t1')!;
+    expect(world.getBlock(redT1.x, redT1.y, redT1.z)).toBe(BlockType.RED_TOWER);
   });
 
-  it('red nexus blocks are NEXUS_BLOCK', () => {
+  it('blue tower blocks are BLUE_TOWER', () => {
+    const blueT1 = structures.find(s => s.id === 'blue-t1')!;
+    expect(world.getBlock(blueT1.x, blueT1.y, blueT1.z)).toBe(BlockType.BLUE_TOWER);
+  });
+
+  it('red nexus blocks are RED_NEXUS', () => {
     const redNexus = structures.find(s => s.id === 'red-nexus')!;
-    expect(world.getBlock(redNexus.x, redNexus.y, redNexus.z)).toBe(BlockType.NEXUS_BLOCK);
+    expect(world.getBlock(redNexus.x, redNexus.y, redNexus.z)).toBe(BlockType.RED_NEXUS);
   });
 
-  it('protection chain is set correctly', () => {
+  it('blue nexus blocks are BLUE_NEXUS', () => {
+    const blueNexus = structures.find(s => s.id === 'blue-nexus')!;
+    expect(world.getBlock(blueNexus.x, blueNexus.y, blueNexus.z)).toBe(BlockType.BLUE_NEXUS);
+  });
+
+  it('protection chain: T1(outer) -> T2(inner) -> Nexus', () => {
     const byId = new Map(structures.map(s => [s.id, s]));
-    const redT2 = byId.get('red-t2')!;
     const redT1 = byId.get('red-t1')!;
+    const redT2 = byId.get('red-t2')!;
     const redNexus = byId.get('red-nexus')!;
 
-    expect(redT2.protectedBy).toBeNull();
-    expect(redT1.protectedBy).toBe(redT2);
-    expect(redNexus.protectedBy).toBe(redT1);
+    // T1 is outer (closest to enemy), attackable first
+    expect(redT1.protectedBy).toBeNull();
+    // T2 is inner, protected by T1
+    expect(redT2.protectedBy).toBe(redT1);
+    // Nexus protected by T2
+    expect(redNexus.protectedBy).toBe(redT2);
   });
 
   it('tower and nexus HP constants are correct', () => {

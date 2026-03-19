@@ -43,25 +43,31 @@ describe('Block', () => {
     expect(TEXTURE_NAMES).toContain('bedrock');
   });
 
-  it('TOWER_BLOCK and NEXUS_BLOCK are solid', () => {
-    expect(isSolid(BlockType.TOWER_BLOCK)).toBe(true);
-    expect(isSolid(BlockType.NEXUS_BLOCK)).toBe(true);
+  it('structure blocks are solid', () => {
+    expect(isSolid(BlockType.BLUE_TOWER)).toBe(true);
+    expect(isSolid(BlockType.RED_TOWER)).toBe(true);
+    expect(isSolid(BlockType.BLUE_NEXUS)).toBe(true);
+    expect(isSolid(BlockType.RED_NEXUS)).toBe(true);
   });
 
-  it('TOWER_BLOCK and NEXUS_BLOCK are not destructible', () => {
-    expect(isDestructible(BlockType.TOWER_BLOCK)).toBe(false);
-    expect(isDestructible(BlockType.NEXUS_BLOCK)).toBe(false);
+  it('structure blocks are not destructible', () => {
+    expect(isDestructible(BlockType.BLUE_TOWER)).toBe(false);
+    expect(isDestructible(BlockType.RED_TOWER)).toBe(false);
+    expect(isDestructible(BlockType.BLUE_NEXUS)).toBe(false);
+    expect(isDestructible(BlockType.RED_NEXUS)).toBe(false);
   });
 
-  it('TOWER_BLOCK uses stone texture for all faces', () => {
-    const uvs = getBlockUVs(BlockType.TOWER_BLOCK);
-    expect(uvs.top).toBe(uvs.side);
-    expect(uvs.top).toBe(uvs.bottom);
+  it('structure blocks have same texture for all faces', () => {
+    for (const bt of [BlockType.BLUE_TOWER, BlockType.RED_TOWER, BlockType.BLUE_NEXUS, BlockType.RED_NEXUS]) {
+      const uvs = getBlockUVs(bt);
+      expect(uvs.top).toBe(uvs.side);
+      expect(uvs.top).toBe(uvs.bottom);
+    }
   });
 
-  it('NEXUS_BLOCK uses bedrock texture for all faces', () => {
-    const uvs = getBlockUVs(BlockType.NEXUS_BLOCK);
-    expect(uvs.top).toBe(uvs.side);
-    expect(uvs.top).toBe(uvs.bottom);
+  it('blue and red tower textures are different', () => {
+    const blue = getBlockUVs(BlockType.BLUE_TOWER);
+    const red = getBlockUVs(BlockType.RED_TOWER);
+    expect(blue.top).not.toBe(red.top);
   });
 });

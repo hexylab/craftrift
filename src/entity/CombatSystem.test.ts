@@ -4,11 +4,11 @@ import { Structure } from './Structure';
 import { BlockType } from '../world/Block';
 
 function createRedTower(z: number, protectedBy: Structure | null = null): Structure {
-  return new Structure('red-t', 'red', 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.TOWER_BLOCK, protectedBy);
+  return new Structure('red-t', 'red', 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.RED_TOWER, protectedBy);
 }
 
 function createBlueTower(z: number): Structure {
-  return new Structure('blue-t', 'blue', 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.TOWER_BLOCK, null);
+  return new Structure('blue-t', 'blue', 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.RED_TOWER, null);
 }
 
 describe('CombatSystem', () => {
@@ -63,7 +63,7 @@ describe('CombatSystem', () => {
 
     it('returns destroyed=true when target dies', () => {
       const cs = new CombatSystem();
-      const target = new Structure('t', 'red', 8, 4, 10, 'tower', ATTACK_DAMAGE, 3, 6, 3, BlockType.TOWER_BLOCK, null);
+      const target = new Structure('t', 'red', 8, 4, 10, 'tower', ATTACK_DAMAGE, 3, 6, 3, BlockType.RED_TOWER, null);
       const result = cs.tryAttack(target, 1.0);
       expect(result.hit).toBe(true);
       if (result.hit) {

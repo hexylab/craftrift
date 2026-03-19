@@ -4,8 +4,10 @@ export enum BlockType {
   DIRT = 2,
   STONE = 3,
   BEDROCK = 4,
-  TOWER_BLOCK = 5,
-  NEXUS_BLOCK = 6,
+  BLUE_TOWER = 5,
+  RED_TOWER = 6,
+  BLUE_NEXUS = 7,
+  RED_NEXUS = 8,
 }
 
 export function isSolid(type: BlockType): boolean {
@@ -15,8 +17,10 @@ export function isSolid(type: BlockType): boolean {
 export function isDestructible(type: BlockType): boolean {
   return type !== BlockType.AIR
     && type !== BlockType.BEDROCK
-    && type !== BlockType.TOWER_BLOCK
-    && type !== BlockType.NEXUS_BLOCK;
+    && type !== BlockType.BLUE_TOWER
+    && type !== BlockType.RED_TOWER
+    && type !== BlockType.BLUE_NEXUS
+    && type !== BlockType.RED_NEXUS;
 }
 
 interface BlockUVs {
@@ -32,6 +36,10 @@ const TEXTURE_INDEX: Record<string, number> = {
   dirt: 2,
   stone: 3,
   bedrock: 4,
+  blue_tower: 5,
+  red_tower: 6,
+  blue_nexus: 7,
+  red_nexus: 8,
 };
 
 export const TEXTURE_NAMES: string[] = Object.keys(TEXTURE_INDEX);
@@ -58,15 +66,25 @@ const BLOCK_UVS: Record<BlockType, BlockUVs> = {
     side: TEXTURE_INDEX.bedrock,
     bottom: TEXTURE_INDEX.bedrock,
   },
-  [BlockType.TOWER_BLOCK]: {
-    top: TEXTURE_INDEX.stone,
-    side: TEXTURE_INDEX.stone,
-    bottom: TEXTURE_INDEX.stone,
+  [BlockType.BLUE_TOWER]: {
+    top: TEXTURE_INDEX.blue_tower,
+    side: TEXTURE_INDEX.blue_tower,
+    bottom: TEXTURE_INDEX.blue_tower,
   },
-  [BlockType.NEXUS_BLOCK]: {
-    top: TEXTURE_INDEX.bedrock,
-    side: TEXTURE_INDEX.bedrock,
-    bottom: TEXTURE_INDEX.bedrock,
+  [BlockType.RED_TOWER]: {
+    top: TEXTURE_INDEX.red_tower,
+    side: TEXTURE_INDEX.red_tower,
+    bottom: TEXTURE_INDEX.red_tower,
+  },
+  [BlockType.BLUE_NEXUS]: {
+    top: TEXTURE_INDEX.blue_nexus,
+    side: TEXTURE_INDEX.blue_nexus,
+    bottom: TEXTURE_INDEX.blue_nexus,
+  },
+  [BlockType.RED_NEXUS]: {
+    top: TEXTURE_INDEX.red_nexus,
+    side: TEXTURE_INDEX.red_nexus,
+    bottom: TEXTURE_INDEX.red_nexus,
   },
 };
 

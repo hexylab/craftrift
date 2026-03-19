@@ -39,7 +39,7 @@ describe('BlockInteraction - DDA Raycast', () => {
 
   it('castRay hits TOWER_BLOCK (solid)', () => {
     const world = new World();
-    world.setBlock(5, 5, 5, BlockType.TOWER_BLOCK);
+    world.setBlock(5, 5, 5, BlockType.RED_TOWER);
     const hit = castRay(world, 5.5, 5.5, 3, 0, 0, 1, 5);
     expect(hit).not.toBeNull();
     expect(hit!.blockX).toBe(5);

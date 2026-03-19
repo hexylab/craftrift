@@ -37,7 +37,7 @@ function setupDOM(): void {
 }
 
 function createStructure(hp: number, maxHp: number): Structure {
-  const s = new Structure('red-t2', 'red', 8, 4, 168, 'tower', maxHp, 3, 6, 3, BlockType.TOWER_BLOCK, null);
+  const s = new Structure('red-t2', 'red', 8, 4, 168, 'tower', maxHp, 3, 6, 3, BlockType.RED_TOWER, null);
   if (hp < maxHp) s.takeDamage(maxHp - hp);
   return s;
 }

@@ -4,11 +4,11 @@ import { World } from '../world/World';
 import { BlockType } from '../world/Block';
 
 function createTower(id: string, team: 'blue' | 'red', z: number, protectedBy: Structure | null = null): Structure {
-  return new Structure(id, team, 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.TOWER_BLOCK, protectedBy);
+  return new Structure(id, team, 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.RED_TOWER, protectedBy);
 }
 
 function createNexus(id: string, team: 'blue' | 'red', z: number, protectedBy: Structure | null = null): Structure {
-  return new Structure(id, team, 7, 4, z, 'nexus', 3000, 5, 4, 5, BlockType.NEXUS_BLOCK, protectedBy);
+  return new Structure(id, team, 7, 4, z, 'nexus', 3000, 5, 4, 5, BlockType.RED_NEXUS, protectedBy);
 }
 
 describe('Structure', () => {
@@ -22,7 +22,7 @@ describe('Structure', () => {
     expect(s.width).toBe(3);
     expect(s.height).toBe(6);
     expect(s.depth).toBe(3);
-    expect(s.blockType).toBe(BlockType.TOWER_BLOCK);
+    expect(s.blockType).toBe(BlockType.RED_TOWER);
     expect(s.protectedBy).toBeNull();
   });
 
@@ -83,8 +83,8 @@ describe('Structure', () => {
     it('placeBlocks fills the area with blockType', () => {
       const s = createTower('test', 'red', 10);
       s.placeBlocks(world);
-      expect(world.getBlock(8, 4, 10)).toBe(BlockType.TOWER_BLOCK);
-      expect(world.getBlock(10, 9, 12)).toBe(BlockType.TOWER_BLOCK);
+      expect(world.getBlock(8, 4, 10)).toBe(BlockType.RED_TOWER);
+      expect(world.getBlock(10, 9, 12)).toBe(BlockType.RED_TOWER);
       expect(world.getBlock(7, 4, 10)).toBe(BlockType.AIR);
       expect(world.getBlock(11, 4, 10)).toBe(BlockType.AIR);
     });
