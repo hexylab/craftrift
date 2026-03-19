@@ -197,4 +197,33 @@ describe('Player', () => {
       expect(player.y + PLAYER_HEIGHT).toBeLessThanOrEqual(8);
     });
   });
+
+  describe('terminal velocity', () => {
+    it('does not exceed terminal velocity', () => {
+      const world = new World();
+      const player = new Player(5, 1000, 5, world);
+      // 長時間落下（10秒相当）
+      for (let i = 0; i < 600; i++) {
+        player.updatePhysics(1 / 60);
+      }
+      expect(player.velocityY).toBeGreaterThanOrEqual(-78.4);
+    });
+  });
+
+  describe('large dt robustness', () => {
+    it('does not fall through blocks with large dt', () => {
+      const world = new World();
+      // 地面 y=0（上面 y=1）
+      for (let x = 4; x <= 6; x++) {
+        for (let z = 4; z <= 6; z++) {
+          world.setBlock(x, 0, z, BlockType.STONE);
+        }
+      }
+      const player = new Player(5, 5, 5, world);
+      // 大きなdt（1秒）で物理更新
+      player.updatePhysics(1.0);
+      // ブロック上面(y=1)を突き抜けていないこと
+      expect(player.y).toBeGreaterThanOrEqual(1);
+    });
+  });
 });
