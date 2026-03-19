@@ -4,6 +4,8 @@ export enum BlockType {
   DIRT = 2,
   STONE = 3,
   BEDROCK = 4,
+  TOWER_BLOCK = 5,
+  NEXUS_BLOCK = 6,
 }
 
 export function isSolid(type: BlockType): boolean {
@@ -11,7 +13,10 @@ export function isSolid(type: BlockType): boolean {
 }
 
 export function isDestructible(type: BlockType): boolean {
-  return type !== BlockType.AIR && type !== BlockType.BEDROCK;
+  return type !== BlockType.AIR
+    && type !== BlockType.BEDROCK
+    && type !== BlockType.TOWER_BLOCK
+    && type !== BlockType.NEXUS_BLOCK;
 }
 
 interface BlockUVs {
@@ -49,6 +54,16 @@ const BLOCK_UVS: Record<BlockType, BlockUVs> = {
     bottom: TEXTURE_INDEX.stone,
   },
   [BlockType.BEDROCK]: {
+    top: TEXTURE_INDEX.bedrock,
+    side: TEXTURE_INDEX.bedrock,
+    bottom: TEXTURE_INDEX.bedrock,
+  },
+  [BlockType.TOWER_BLOCK]: {
+    top: TEXTURE_INDEX.stone,
+    side: TEXTURE_INDEX.stone,
+    bottom: TEXTURE_INDEX.stone,
+  },
+  [BlockType.NEXUS_BLOCK]: {
     top: TEXTURE_INDEX.bedrock,
     side: TEXTURE_INDEX.bedrock,
     bottom: TEXTURE_INDEX.bedrock,

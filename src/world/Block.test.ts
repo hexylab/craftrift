@@ -42,4 +42,26 @@ describe('Block', () => {
     expect(TEXTURE_NAMES).toContain('stone');
     expect(TEXTURE_NAMES).toContain('bedrock');
   });
+
+  it('TOWER_BLOCK and NEXUS_BLOCK are solid', () => {
+    expect(isSolid(BlockType.TOWER_BLOCK)).toBe(true);
+    expect(isSolid(BlockType.NEXUS_BLOCK)).toBe(true);
+  });
+
+  it('TOWER_BLOCK and NEXUS_BLOCK are not destructible', () => {
+    expect(isDestructible(BlockType.TOWER_BLOCK)).toBe(false);
+    expect(isDestructible(BlockType.NEXUS_BLOCK)).toBe(false);
+  });
+
+  it('TOWER_BLOCK uses stone texture for all faces', () => {
+    const uvs = getBlockUVs(BlockType.TOWER_BLOCK);
+    expect(uvs.top).toBe(uvs.side);
+    expect(uvs.top).toBe(uvs.bottom);
+  });
+
+  it('NEXUS_BLOCK uses bedrock texture for all faces', () => {
+    const uvs = getBlockUVs(BlockType.NEXUS_BLOCK);
+    expect(uvs.top).toBe(uvs.side);
+    expect(uvs.top).toBe(uvs.bottom);
+  });
 });
