@@ -637,6 +637,7 @@ private checkVictory(): void {
 | `src/world/MapData.ts` | マップサイズ拡張、構造物配置関数（MapResult返却） |
 | `src/engine/Game.ts` | CombatSystem/HUD統合、gameOverフラグ、update(dt, time)シグネチャ変更、攻撃フロー |
 | `src/engine/Renderer.ts` | FPSCamera far値を200→250に更新 |
+| `src/player/BlockInteraction.ts` | isDestructibleでないブロックへのハイライト非表示 |
 | `index.html` | HUD用DOM要素追加 |
 
 ## 8. テスト戦略
