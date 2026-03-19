@@ -162,4 +162,39 @@ describe('Player', () => {
       expect(jumpHeight).toBeLessThan(1.3);
     });
   });
+
+  describe('ceiling collision', () => {
+    it('stops upward velocity when hitting ceiling', () => {
+      const world = new World();
+      // 地面 y=5（上面 y=6）
+      for (let x = 4; x <= 6; x++) {
+        for (let z = 4; z <= 6; z++) {
+          world.setBlock(x, 5, z, BlockType.STONE);
+        }
+      }
+      // 天井 y=8（下面 y=8）。着地後 y≈6.0、ジャンプ最高到達 y≈7.27。
+      // 頭の位置 y + 1.8 ≈ 9.07 なので天井下面 y=8 に衝突する。
+      for (let x = 4; x <= 6; x++) {
+        for (let z = 4; z <= 6; z++) {
+          world.setBlock(x, 8, z, BlockType.STONE);
+        }
+      }
+      // プレイヤーを地面のすぐ上にスポーン（天井とは重ならない位置）
+      const player = new Player(5, 6.1, 5, world);
+      // 着地させる
+      for (let i = 0; i < 120; i++) {
+        player.updatePhysics(1 / 60);
+      }
+      expect(player.onGround).toBe(true);
+      player.jump();
+      // 数フレーム進めて天井に当たるはず
+      for (let i = 0; i < 30; i++) {
+        player.updatePhysics(1 / 60);
+      }
+      // velocityYは0以下（天井衝突でリセットされ、その後重力で負に）
+      expect(player.velocityY).toBeLessThanOrEqual(0);
+      // 天井(y=8)の下面を超えていない: プレイヤーy + PLAYER_HEIGHT <= 8
+      expect(player.y + PLAYER_HEIGHT).toBeLessThanOrEqual(8);
+    });
+  });
 });
