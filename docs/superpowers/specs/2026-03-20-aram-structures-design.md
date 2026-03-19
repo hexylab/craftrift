@@ -50,7 +50,7 @@ export class Entity {
   }
 
   takeDamage(amount: number): void {
-    if (!this.isAlive) return;
+    if (!this.isAlive || amount <= 0) return;
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp === 0) {
       this.isAlive = false;
@@ -62,12 +62,16 @@ export class Entity {
 - `id`はユニーク識別子（例: `"blue-t1"`, `"red-nexus"`）
 - `x, y, z`は構造物の基準座標（左下手前の角）
 - `hp`は現在HP、`maxHp`は最大HP
-- `takeDamage`はHP=0で`isAlive = false`に設定
+- `takeDamage`は`amount <= 0`を無視し、HP=0で`isAlive = false`に設定
 
 ### Structure（構造物）
 
 ```typescript
 // src/entity/Structure.ts
+import { Entity, Team } from './Entity';
+import { BlockType } from '../world/Block';
+import { World } from '../world/World';
+
 export type StructureType = 'tower' | 'nexus';
 
 export class Structure extends Entity {
@@ -77,6 +81,29 @@ export class Structure extends Entity {
   readonly depth: number;
   readonly blockType: BlockType;
   protectedBy: Structure | null;
+
+  constructor(
+    id: string,
+    team: Team,
+    x: number,
+    y: number,
+    z: number,
+    structureType: StructureType,
+    maxHp: number,
+    width: number,
+    height: number,
+    depth: number,
+    blockType: BlockType,
+    protectedBy: Structure | null,
+  ) {
+    super(id, team, x, y, z, maxHp);
+    this.structureType = structureType;
+    this.width = width;
+    this.height = height;
+    this.depth = depth;
+    this.blockType = blockType;
+    this.protectedBy = protectedBy;
+  }
 
   isProtected(): boolean {
     return this.protectedBy !== null && this.protectedBy.isAlive;
@@ -124,7 +151,7 @@ removeBlocks(world: World): void {
 }
 ```
 
-- `placeBlocks`はマップ生成時に呼び出す
+- `placeBlocks`はマップ生成時に呼び出す（`generateARAMMap`内で呼び、その後`rebuildAllChunks`が全チャンクを再構築する）
 - `removeBlocks`は構造物破壊時（`isAlive = false`）に呼び出す
 
 ## 2. マップ拡張
@@ -154,25 +181,69 @@ const LANE_Z_END = 207;
 - 壁の構造（外壁=BEDROCK、内壁=STONE）は既存パターンを維持
 - 地面（BEDROCK+DIRT+GRASS）も同じパターンで拡張
 
+### カメラ far クリッピング更新
+
+マップ長が210に拡張されるため、Renderer.tsのFPSCamera farパラメータを200 → 250に更新する。
+
 ### 構造物配置
 
-レーン中央 z=105 を基準に左右対称に配置。
+レーン中央 z=104.5 を基準に左右対称に配置。
 
 ```
 Blue側:
-  Nexus:  x=7, y=4, z=8    (5×4×5, HP=3000, NEXUS_BLOCK)
-  T2:     x=8, y=4, z=40   (3×6×3, HP=1500, TOWER_BLOCK)
-  T1:     x=8, y=4, z=72   (3×6×3, HP=1500, TOWER_BLOCK)
+  Nexus:  x=7, y=4, z=7    (5×4×5, HP=3000, NEXUS_BLOCK)  → z=7〜11
+  T2:     x=8, y=4, z=39   (3×6×3, HP=1500, TOWER_BLOCK)  → z=39〜41
+  T1:     x=8, y=4, z=71   (3×6×3, HP=1500, TOWER_BLOCK)  → z=71〜73
 
 Red側:
-  T1:     x=8, y=4, z=135  (3×6×3, HP=1500, TOWER_BLOCK)
-  T2:     x=8, y=4, z=167  (3×6×3, HP=1500, TOWER_BLOCK)
-  Nexus:  x=7, y=4, z=197  (5×4×5, HP=3000, NEXUS_BLOCK)
+  T1:     x=8, y=4, z=136  (3×6×3, HP=1500, TOWER_BLOCK)  → z=136〜138
+  T2:     x=8, y=4, z=168  (3×6×3, HP=1500, TOWER_BLOCK)  → z=168〜170
+  Nexus:  x=7, y=4, z=198  (5×4×5, HP=3000, NEXUS_BLOCK)  → z=198〜202
 ```
+
+対称性の検証:
+- Nexus: (7+202)/2 = 104.5 ✓
+- T2: (39+170)/2 = 104.5 ✓
+- T1: (71+138)/2 = 104.5 ✓
 
 - y=4はGRASS_Y(=3)の1つ上（地面の上に建つ）
 - タワー: 3×6×3ブロック（幅3、高さ6、奥行3）
 - ネクサス: 5×4×5ブロック（幅5、高さ4、奥行5）
+
+### 構造物定数
+
+構造物のHP定数はMapData.tsで定義する（構造物生成と同じファイル）。
+
+```typescript
+export const TOWER_HP = 1500;
+export const NEXUS_HP = 3000;
+```
+
+### 構造物生成関数
+
+`generateARAMMap`のシグネチャを拡張し、構造物リストも返す:
+
+```typescript
+export interface MapResult {
+  structures: Structure[];
+}
+
+export function generateARAMMap(world: World): MapResult {
+  // 1. 地面・壁のブロック配置（既存ロジック拡張）
+  // 2. 構造物インスタンスを生成
+  // 3. protectedByチェーンを設定
+  // 4. 各構造物のplaceBlocks(world)を呼び出し
+  // 5. structuresリストを返す
+  return { structures };
+}
+```
+
+Game.init()での呼び出し:
+```typescript
+const { structures } = generateARAMMap(this.world);
+this.structures = structures;
+// この後にrebuildAllChunks()が呼ばれるため、構造物ブロックも正しくメッシュ化される
+```
 
 ### 順序制約チェーン
 
@@ -194,7 +265,7 @@ Red側（プレイヤーが攻撃する対象）:
 
 ```typescript
 export const SPAWN_POSITION = {
-  x: 9.5,
+  x: 9.0,  // レーン中央 (2+16)/2 = 9.0
   y: GRASS_Y + 2,  // 落下して着地
   z: LANE_Z_START + 2,
 };
@@ -218,20 +289,25 @@ export enum BlockType {
 
 ### テクスチャマッピング
 
-新しいテクスチャ画像は追加しない。既存テクスチャを流用する。
+新しいテクスチャ画像は追加しない。既存テクスチャを流用する。`BLOCK_UVS`レコードに以下を追加:
 
 ```typescript
-[BlockType.TOWER_BLOCK]: {
-  top: TEXTURE_INDEX.stone,
-  side: TEXTURE_INDEX.stone,
-  bottom: TEXTURE_INDEX.stone,
-},
-[BlockType.NEXUS_BLOCK]: {
-  top: TEXTURE_INDEX.bedrock,
-  side: TEXTURE_INDEX.bedrock,
-  bottom: TEXTURE_INDEX.bedrock,
-},
+const BLOCK_UVS: Record<BlockType, BlockUVs> = {
+  // ...既存エントリ...
+  [BlockType.TOWER_BLOCK]: {
+    top: TEXTURE_INDEX.stone,
+    side: TEXTURE_INDEX.stone,
+    bottom: TEXTURE_INDEX.stone,
+  },
+  [BlockType.NEXUS_BLOCK]: {
+    top: TEXTURE_INDEX.bedrock,
+    side: TEXTURE_INDEX.bedrock,
+    bottom: TEXTURE_INDEX.bedrock,
+  },
+};
 ```
+
+`ATLAS_SIZE`は`TEXTURE_NAMES.length`（=5）のまま変更なし（新テクスチャ画像は追加しないため）。
 
 ### isSolid / isDestructible
 
@@ -250,6 +326,7 @@ export function isDestructible(type: BlockType): boolean {
 
 - TOWER_BLOCK, NEXUS_BLOCKは`isSolid = true`（衝突あり）
 - `isDestructible = false`（通常のブロック破壊では壊せない、CombatSystemからのみ除去）
+- BlockInteractionのハイライト表示: `isDestructible`でないブロックにはハイライトを表示しない（BlockInteraction.update内でhitブロックのisDestructibleをチェック）
 
 ## 4. 攻撃システム
 
@@ -261,32 +338,44 @@ export const ATTACK_DAMAGE = 50;
 export const ATTACK_RANGE = 5.0;
 export const ATTACK_COOLDOWN = 0.5;
 
+export type AttackFailReason = 'cooldown' | 'no_target' | 'protected';
+
 export interface AttackResult {
+  hit: true;
   target: Structure;
   damage: number;
   destroyed: boolean;
+}
+
+export interface AttackFailed {
+  hit: false;
+  reason: AttackFailReason;
+  target: Structure | null;  // 'protected'の場合はターゲットが入る
 }
 
 export class CombatSystem {
   private lastAttackTime = 0;
 
   tryAttack(
-    eyeX: number, eyeY: number, eyeZ: number,
-    dirX: number, dirY: number, dirZ: number,
-    structures: Structure[],
+    target: Structure | null,
     time: number,
-  ): AttackResult | null {
-    if (time - this.lastAttackTime < ATTACK_COOLDOWN) return null;
-
-    const target = this.findTarget(eyeX, eyeY, eyeZ, dirX, dirY, dirZ, structures);
-    if (!target) return null;
-    if (target.isProtected()) return null;
+  ): AttackResult | AttackFailed {
+    if (time - this.lastAttackTime < ATTACK_COOLDOWN) {
+      return { hit: false, reason: 'cooldown', target: null };
+    }
+    if (!target) {
+      return { hit: false, reason: 'no_target', target: null };
+    }
+    if (target.isProtected()) {
+      return { hit: false, reason: 'protected', target };
+    }
 
     this.lastAttackTime = time;
     const prevAlive = target.isAlive;
     target.takeDamage(ATTACK_DAMAGE);
 
     return {
+      hit: true,
       target,
       damage: ATTACK_DAMAGE,
       destroyed: prevAlive && !target.isAlive,
@@ -301,6 +390,7 @@ export class CombatSystem {
     // 視線レイと各構造物のAABBの交差判定
     // 射程ATTACK_RANGE以内で最も近い構造物を返す
     // 対象は敵チーム（red）かつisAliveのみ
+    // Blue側の構造物はスキップ
   }
 }
 ```
@@ -314,35 +404,119 @@ export class CombatSystem {
 3. t > 0 かつ t <= ATTACK_RANGE の範囲で最小のtを持つ構造物を返す
 4. `isAlive === false`の構造物はスキップ
 5. Blue側の構造物もスキップ（シングルプレイヤーでは敵=Redのみ）
+6. `findTarget`はHUDのターゲット表示にも使用するため、publicメソッドとする
+
+注意: `findTarget`はRed側のみを返すため、Blue側構造物はHUDにターゲット表示されない。これは意図的な仕様で、シングルプレイヤーでは味方構造物のHP確認は不要。
 
 ### Game.update内での攻撃フロー
 
+`Game.update`のシグネチャを`update(dt: number, time: number)`に変更する。`time`はミリ秒（`performance.now()`由来）で、秒に変換して使用する。
+
 ```typescript
-// 既存のBlockInteraction処理を修正
-if (this.input.consumeLeftClick()) {
-  // まず構造物への攻撃を試みる
-  const attackResult = this.combatSystem.tryAttack(
+private loop(time: number): void {
+  const dt = Math.min((time - this.lastTime) / 1000, 0.05);
+  this.lastTime = time;
+  this.update(dt, time);
+  this.renderer.render();
+  requestAnimationFrame((t) => this.loop(t));
+}
+
+private update(dt: number, time: number): void {
+  if (this.instructionsEl) {
+    this.instructionsEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
+  }
+  if (!this.input.isPointerLocked) return;
+
+  // ゲーム終了後は全操作を停止（移動・攻撃・ブロック操作すべて）
+  if (this.gameOver) return;
+
+  // カメラ回転
+  const mouse = this.input.getMouseMovement();
+  this.renderer.fpsCamera.rotate(mouse.x, mouse.y);
+
+  // ジャンプ・物理
+  if (this.input.isKeyDown('Space')) { this.player.jump(); }
+  this.player.updatePhysics(dt);
+
+  // WASD移動
+  const forward = this.renderer.fpsCamera.getForward();
+  const right = this.renderer.fpsCamera.getRight();
+  let moveX = 0, moveZ = 0;
+  if (this.input.isKeyDown('KeyW')) { moveX += forward.x; moveZ += forward.z; }
+  if (this.input.isKeyDown('KeyS')) { moveX -= forward.x; moveZ -= forward.z; }
+  if (this.input.isKeyDown('KeyA')) { moveX -= right.x; moveZ -= right.z; }
+  if (this.input.isKeyDown('KeyD')) { moveX += right.x; moveZ += right.z; }
+  if (moveX !== 0 || moveZ !== 0) {
+    const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+    this.player.move(moveX / len, moveZ / len, dt);
+  }
+
+  // カメラ位置更新
+  this.renderer.fpsCamera.setPosition(
+    this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+  );
+
+  const dir = this.renderer.fpsCamera.getDirection();
+
+  // findTargetは1フレームに1回だけ呼び、結果をHUD表示と攻撃処理で共有
+  const targetStructure = this.combatSystem.findTarget(
     this.player.eyeX, this.player.eyeY, this.player.eyeZ,
     dir.x, dir.y, dir.z,
     this.structures,
-    time / 1000,
   );
 
-  if (attackResult) {
-    this.hud.showDamage(attackResult);
-    if (attackResult.destroyed) {
-      attackResult.target.removeBlocks(this.world);
-      this.rebuildDirtyChunks();
-      this.checkVictory();
+  const hit = this.blockInteraction.update(
+    this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+    dir.x, dir.y, dir.z,
+  );
+
+  // 左クリック処理: 構造物攻撃 → ブロック破壊のフォールスルー
+  const leftClick = this.input.consumeLeftClick();
+  if (leftClick) {
+    const result = this.combatSystem.tryAttack(targetStructure, time / 1000);
+
+    if (result.hit) {
+      this.hud.showDamage(result);
+      if (result.destroyed) {
+        result.target.removeBlocks(this.world);
+        this.rebuildDirtyChunks();
+        this.checkVictory();
+      }
+    } else if (result.reason === 'protected') {
+      this.hud.showProtected();
+    } else if (result.reason === 'no_target' && hit) {
+      // 構造物に当たらなかった場合は通常のブロック破壊
+      if (this.blockInteraction.breakBlock(hit)) {
+        this.rebuildDirtyChunks();
+      }
     }
-  } else if (hit) {
-    // 構造物に当たらなかった場合は通常のブロック破壊
-    if (this.blockInteraction.breakBlock(hit)) {
-      this.rebuildDirtyChunks();
+    // reason === 'cooldown' の場合は何もしない
+  }
+
+  // 右クリック処理（変更なし）
+  if (this.input.consumeRightClick()) {
+    if (hit) {
+      if (this.blockInteraction.placeBlock(hit, this.player.x, this.player.y, this.player.z)) {
+        this.rebuildDirtyChunks();
+      }
     }
+  }
+
+  // HUDターゲット表示更新（毎フレーム、findTarget結果を再利用）
+  if (targetStructure) {
+    this.hud.showTarget(targetStructure);
+  } else {
+    this.hud.hideTarget();
   }
 }
 ```
+
+設計ポイント:
+- `findTarget`は1フレームに1回だけ呼ばれ、結果を攻撃判定とHUD表示で共有する
+- `tryAttack`はターゲットを外部から受け取り、`findTarget`を内部で呼ばない。攻撃結果は`hit: true/false`の判別型で、失敗理由（`cooldown`/`no_target`/`protected`）を含む
+- `consumeLeftClick()`と`consumeRightClick()`はそれぞれ必ず1回だけ呼ばれ、clickイベントが未消費のまま次フレームに残ることはない
+- `gameOver`チェックはポインターロックチェック直後に配置し、勝利後は移動・攻撃・ブロック操作すべてを停止する
+- `checkVictory`で`hideTarget()`も呼び、勝利画面表示時にターゲット情報が残らないようにする
 
 ## 5. HUD
 
@@ -371,15 +545,21 @@ if (this.input.consumeLeftClick()) {
 ```typescript
 // src/ui/HUD.ts
 export class HUD {
-  private targetInfoEl: HTMLElement;
-  private targetNameEl: HTMLElement;
-  private hpBarFillEl: HTMLElement;
-  private hpTextEl: HTMLElement;
-  private feedbackEl: HTMLElement;
-  private victoryEl: HTMLElement;
+  private targetInfoEl: HTMLElement | null;
+  private targetNameEl: HTMLElement | null;
+  private hpBarFillEl: HTMLElement | null;
+  private hpTextEl: HTMLElement | null;
+  private feedbackEl: HTMLElement | null;
+  private victoryEl: HTMLElement | null;
+  private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    // DOM要素を取得またはDOM未使用時はnullガード
+    this.targetInfoEl = document.getElementById('target-info');
+    this.targetNameEl = document.getElementById('target-name');
+    this.hpBarFillEl = document.getElementById('hp-bar-fill');
+    this.hpTextEl = document.getElementById('hp-text');
+    this.feedbackEl = document.getElementById('combat-feedback');
+    this.victoryEl = document.getElementById('victory-screen');
   }
 
   showTarget(structure: Structure): void {
@@ -397,6 +577,7 @@ export class HUD {
 
   showProtected(): void {
     // 「このタワーは保護されています」を一時表示（1.5秒後に自動非表示）
+    // feedbackTimerで管理し、連続呼び出し時はタイマーリセット
   }
 
   showVictory(): void {
@@ -407,39 +588,31 @@ export class HUD {
 
 ### 更新タイミング
 
-`Game.update()`の最後で毎フレーム呼び出す:
-
-```typescript
-// 視線が構造物に当たっているかチェック
-const targetStructure = this.combatSystem.findTarget(
-  this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-  dir.x, dir.y, dir.z,
-  this.structures,
-);
-if (targetStructure) {
-  this.hud.showTarget(targetStructure);
-} else {
-  this.hud.hideTarget();
-}
-```
+HUDターゲット表示は`Game.update()`の最後で毎フレーム更新される（セクション4の攻撃フロー参照）。
 
 ## 6. 勝利判定
 
 ```typescript
+// Gameクラスのフィールド
+private gameOver = false;
+
 // Game内
 private checkVictory(): void {
   const redNexus = this.structures.find(s => s.id === 'red-nexus');
   if (redNexus && !redNexus.isAlive) {
+    this.gameOver = true;
+    this.hud.hideTarget();
     this.hud.showVictory();
-    this.input.exitPointerLock();
-    // ゲームループは継続するが、isPointerLockedがfalseなのでupdateは実行されない
+    document.exitPointerLock();
   }
 }
 ```
 
-- ネクサス破壊時にポインターロックを解除し、勝利画面を表示
-- ゲームループ自体は停止せず、`isPointerLocked`がfalseになることで入力が無効化される
-- 将来的にはリスタート機能を追加可能
+- `gameOver`フラグで勝利後の全操作（移動・攻撃・ブロック操作）を無効化する
+- `update()`内で`gameOver`チェックはポインターロックチェック直後に配置（セクション4参照）
+- ポインターロック解除は`document.exitPointerLock()`を直接呼ぶ（InputManagerへのメソッド追加は不要）
+- 勝利後にキャンバスをクリックしても`update()`内の`gameOver`チェックで操作が無効化されるため問題ない
+- `hideTarget()`を呼び、勝利画面表示時にターゲット情報が残らないようにする
 
 ## 7. ファイル構成
 
@@ -460,9 +633,10 @@ private checkVictory(): void {
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `src/world/Block.ts` | TOWER_BLOCK, NEXUS_BLOCK追加、isDestructible更新 |
-| `src/world/MapData.ts` | マップサイズ拡張、構造物配置関数 |
-| `src/engine/Game.ts` | CombatSystem/HUD統合、勝利判定、攻撃フロー |
+| `src/world/Block.ts` | TOWER_BLOCK, NEXUS_BLOCK追加、BLOCK_UVS追加、isDestructible更新 |
+| `src/world/MapData.ts` | マップサイズ拡張、構造物配置関数（MapResult返却） |
+| `src/engine/Game.ts` | CombatSystem/HUD統合、gameOverフラグ、update(dt, time)シグネチャ変更、攻撃フロー |
+| `src/engine/Renderer.ts` | FPSCamera far値を200→250に更新 |
 | `index.html` | HUD用DOM要素追加 |
 
 ## 8. テスト戦略
@@ -471,9 +645,10 @@ private checkVictory(): void {
 - `takeDamage`でHP減少を確認
 - HP=0で`isAlive = false`
 - `isAlive = false`の状態で`takeDamage`呼んでも何も起きない
-- 負のダメージを渡してもHPが`maxHp`を超えない（`Math.max(0, ...)`で担保）
+- `amount <= 0`の場合HPが変化しない
 
 ### Structure.test.ts
+- コンストラクタで全プロパティが正しく設定される
 - `isProtected()`が`protectedBy`の生存に連動
 - `protectedBy`が破壊されたら`isProtected()`がfalseになる
 - `takeDamage`がprotected時に無視される
@@ -482,13 +657,14 @@ private checkVictory(): void {
 - チェーン: T2破壊 → T1が攻撃可能 → T1破壊 → Nexusが攻撃可能
 
 ### CombatSystem.test.ts
-- クールダウン中の攻撃がnullを返す
-- クールダウン経過後の攻撃が成功する
-- 射程外の構造物に当たらない
-- 射程内の最も近い構造物がターゲットになる
-- protectedな構造物への攻撃がnullを返す
+- クールダウン中の攻撃が`{ hit: false, reason: 'cooldown' }`を返す
+- クールダウン経過後の攻撃が`{ hit: true }`を返す
+- ターゲットがnullの場合`{ hit: false, reason: 'no_target' }`を返す
+- protectedな構造物への攻撃が`{ hit: false, reason: 'protected', target }`を返す
 - 破壊時に`destroyed = true`が返る
-- Blue側の構造物がターゲットにならない
+- 射程外の構造物にfindTargetが当たらない
+- 射程内の最も近い構造物がfindTargetのターゲットになる
+- Blue側の構造物がfindTargetのターゲットにならない
 
 ### HUD.test.ts
 - `showTarget`でDOM要素が更新される
@@ -500,7 +676,8 @@ private checkVictory(): void {
 ### MapData変更のテスト
 - 既存のMapData.test.tsを更新
 - マップサイズ定数の検証
-- 構造物配置座標の検証
+- 構造物配置座標の対称性検証
+- 構造物ブロックが正しいBlockTypeで配置されている
 
 ## 9. 定数まとめ
 
@@ -508,8 +685,9 @@ private checkVictory(): void {
 |-----|-----|------|
 | MAP_WIDTH | 19 | MapData.ts |
 | MAP_LENGTH | 210 | MapData.ts |
-| TOWER_HP | 1500 | Structure.ts or MapData.ts |
-| NEXUS_HP | 3000 | Structure.ts or MapData.ts |
+| TOWER_HP | 1500 | MapData.ts |
+| NEXUS_HP | 3000 | MapData.ts |
 | ATTACK_DAMAGE | 50 | CombatSystem.ts |
 | ATTACK_RANGE | 5.0 | CombatSystem.ts |
 | ATTACK_COOLDOWN | 0.5 | CombatSystem.ts |
+| CAMERA_FAR | 250 | Renderer.ts |
