@@ -61,7 +61,9 @@ CraftRiftのゲームシステムを、LoL ARAMの再現からMinecraft要素を
 type DamageSource = 'player' | 'tower' | 'blue-minion' | 'red-minion';
 ```
 
-`Entity.takeDamage()` を `takeDamage(amount: number, source: DamageSource)` に拡張し、ダメージソースを記録する。ミニオン死亡時に `lastDamagedBy === 'player'` であればラストヒットドロップを付与。
+`Entity.takeDamage()` を `takeDamage(amount: number, source?: DamageSource)` に拡張し、ダメージソースを記録する。`source` はオプショナルとし、省略時は `undefined`（ラストヒット判定の対象外）。これにより既存の呼び出し箇所（`Structure.takeDamage()`、ミニオン間ダメージ等）は変更不要で段階的に移行できる。プレイヤー攻撃時のみ `source: 'player'` を明示的に渡す。ミニオン死亡時に `lastDamagedBy === 'player'` であればラストヒットドロップを付与。
+
+将来のマルチプレイヤー対応時には `DamageSource` を `{ type: 'player' | 'tower' | 'minion'; team: Team; id?: string }` のようなオブジェクト型に拡張する。現段階ではシンプルな文字列ユニオンで十分。
 
 ### 1.8 近接ドロップのイベント伝播
 
@@ -376,13 +378,17 @@ interface PlacedBlock {
 - クラフトでブロックグレードを上げると、設置されるブロックが木→石→鉄→ダイヤに変わる
 - 下位グレードには戻せない（常に最新グレード）
 
+#### BlockInteraction.placeBlock() の修正方針
+
+既存の `BlockInteraction.placeBlock()` は `BlockType.STONE` をハードコードしている。これを `Inventory` のブロックグレードに応じた `BlockType` に変更する。`BlockInteraction` のコンストラクタまたは `placeBlock` メソッドに `getPlaceBlockType: () => BlockType` コールバックを渡し、`Game.ts` 側で `Inventory` のブロックグレードを参照して返す設計とする。これにより `BlockInteraction` が `Inventory` に直接依存しない。
+
 ### 4.8 ミニオンとプレイヤー設置ブロックの相互作用
 
 プレイヤーがブロックを設置してミニオンの進路を塞いだ場合のルール:
 
 - **1ブロック高**: 既存のオートジャンプ機能で乗り越える（既存実装を維持）
 - **2ブロック以上**: ミニオンはブロックを攻撃して耐久度を減らす（ミニオンの攻撃力でブロック耐久値-1、攻撃間隔は `MINION_ATTACK_INTERVAL` を共有）
-- **パスファインディング**: 既存の `Pathfinding.ts` の `buildObstacleMap` を拡張し、ワールドブロック（地表+1以上の固体ブロック）も障害物として考慮する。ただし耐久値1のブロックはコスト増、耐久値が高いブロックほどコストが高くなる重み付きパスファインディングに拡張
+- **パスファインディング**: 既存の `Pathfinding.ts` の `buildObstacleMap` を拡張し、ワールドブロック（地表+1以上の固体ブロック）も障害物として考慮する。ただし耐久値1のブロックはコスト増、耐久値が高いブロックほどコストが高くなる重み付きパスファインディングに拡張。`buildObstacleMap` のシグネチャに `WorldLike` を追加し、`MinionAI` のコンストラクタに `WorldLike` 参照を渡す。`MinionWaveManager` は既に `WorldLike` を受け取っているため、`spawnSingleMinion` 時に `MinionAI` へ伝播する
 - **スタック防止**: ミニオンが同じ位置にN秒（パラメータ、例: 5秒）滞留した場合、対面するブロックを自動的に即時破壊する（フェイルセーフ）
 
 ---
