@@ -5,10 +5,16 @@ export class InputManager {
   private mouseMovementY = 0;
   private mouseLeftClick = false;
   private mouseRightClick = false;
+  private pressedKeys = new Set<string>();
   private _isPointerLocked = false;
 
   constructor(private canvas: HTMLCanvasElement) {
-    document.addEventListener('keydown', (e) => this.keys.add(e.code));
+    document.addEventListener('keydown', (e) => {
+      this.keys.add(e.code);
+      if (!e.repeat) {
+        this.pressedKeys.add(e.code);
+      }
+    });
     document.addEventListener('keyup', (e) => this.keys.delete(e.code));
     document.addEventListener('mousemove', (e) => {
       if (this._isPointerLocked) {
@@ -51,6 +57,14 @@ export class InputManager {
     const v = this.mouseRightClick;
     this.mouseRightClick = false;
     return v;
+  }
+
+  consumeKeyPress(code: string): boolean {
+    if (this.pressedKeys.has(code)) {
+      this.pressedKeys.delete(code);
+      return true;
+    }
+    return false;
   }
 
   get isPointerLocked(): boolean {
