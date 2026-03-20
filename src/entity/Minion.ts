@@ -9,6 +9,12 @@ export const MINION_MOVE_SPEED = 3.5;
 export class Minion extends Entity {
   attackTimer = 0;
 
+  // EntityBody fields for EntityPhysics integration
+  readonly width = 0.8;   // slightly larger than player (0.6)
+  readonly height = 1.0;  // sheep height
+  velocityY = 0;
+  onGround = false;
+
   constructor(id: string, team: Team, x: number, y: number, z: number) {
     super(id, team, x, y, z, MINION_HP);
   }

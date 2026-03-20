@@ -3,7 +3,11 @@ import { Minion } from './Minion';
 import { MinionAI, PlayerInfo } from './MinionAI';
 import { Structure } from './Structure';
 import { Team } from './Entity';
-import { KnockbackState, createKnockbackState, updateKnockback, hasKnockback } from '../physics/Knockback';
+import { KnockbackState, createKnockbackState } from '../physics/Knockback';
+import { applyGravity, moveWithCollision, tryJump, applyEntityKnockback } from '../physics/EntityPhysics';
+
+/** EntityPhysicsが要求するWorldの最小インターフェース */
+export type WorldLike = { getBlock: (x: number, y: number, z: number) => unknown };
 
 export const WAVE_INTERVAL = 30.0;
 export const WAVE_SIZE = 3;
@@ -27,7 +31,7 @@ export class MinionWaveManager {
     private buildMinionModel?: (team: Team) => THREE.Group,
   ) {}
 
-  update(dt: number, structures: Structure[], playerInfo?: PlayerInfo): void {
+  update(dt: number, structures: Structure[], world: WorldLike, playerInfo?: PlayerInfo): void {
     this.structures = structures;
 
     // Wave spawn
@@ -46,29 +50,36 @@ export class MinionWaveManager {
       const ai = this.ais.get(minion.id);
       if (!ai) continue;
 
-      // Knockback update
-      const kb = this.knockbacks.get(minion.id);
-      if (kb && hasKnockback(kb)) {
-        minion.x += kb.vx * dt;
-        minion.z += kb.vz * dt;
-        updateKnockback(kb, dt);
-      }
-
       // AI update — Redミニオンにはプレイヤー（Blue）を敵として渡す
       const enemyPlayer = (minion.team !== 'blue' && playerInfo) ? playerInfo : undefined;
       const result = ai.update(dt, this.minions, this.structures, undefined, enemyPlayer);
 
-      // A*パスファインディングベースの移動（構造物すり抜け防止付き）
-      const newX = minion.x + result.moveX;
-      const newZ = minion.z + result.moveZ;
-      if (!this.isInsideStructure(newX, minion.y, newZ)) {
-        minion.x = newX;
-        minion.z = newZ;
-      } else if (!this.isInsideStructure(minion.x, minion.y, newZ)) {
-        minion.z = newZ;
-      } else if (!this.isInsideStructure(newX, minion.y, minion.z)) {
-        minion.x = newX;
+      // 移動前の位置を記録（auto-jump判定用）
+      const prevX = minion.x;
+      const prevZ = minion.z;
+
+      // ノックバックをEntityPhysics経由で適用（壁衝突考慮）
+      const kb = this.knockbacks.get(minion.id);
+      if (kb) {
+        applyEntityKnockback(minion, kb, dt, world);
       }
+
+      // AI移動をEntityPhysics経由で適用（壁衝突考慮）
+      if (result.moveX !== 0 || result.moveZ !== 0) {
+        moveWithCollision(minion, result.moveX, result.moveZ, world);
+      }
+
+      // Auto-jump: 移動しようとしたのにブロックされた場合、ジャンプで乗り越え試行
+      if (result.moveX !== 0 || result.moveZ !== 0) {
+        const moved = Math.abs(minion.x - prevX) + Math.abs(minion.z - prevZ);
+        const intended = Math.abs(result.moveX) + Math.abs(result.moveZ);
+        if (moved < intended * 0.3 && minion.onGround) {
+          tryJump(minion);
+        }
+      }
+
+      // 重力適用
+      applyGravity(minion, dt, world);
 
       // ミニオンの向きを進行方向に合わせる
       if (result.moveX !== 0 || result.moveZ !== 0) {
@@ -201,19 +212,6 @@ export class MinionWaveManager {
 
   getKnockback(id: string): KnockbackState | undefined {
     return this.knockbacks.get(id);
-  }
-
-  /** ミニオンが構造物内にいるかチェック */
-  private isInsideStructure(x: number, y: number, z: number): boolean {
-    const r = 0.4;
-    for (const s of this.structures) {
-      if (!s.isAlive) continue;
-      if (x + r > s.x && x - r < s.x + s.width &&
-          z + r > s.z && z - r < s.z + s.depth) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /** ミニオンからプレイヤーへの蓄積ダメージを取得してリセット */

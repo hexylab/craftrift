@@ -204,7 +204,7 @@ export class Game {
     this.playerModel.rotation.y = Math.atan2(camForwardSync.x, camForwardSync.z);
 
     // ミニオンウェーブ更新（プレイヤー情報を渡してRedミニオンがプレイヤーを攻撃可能に）
-    this.minionWaveManager.update(dt, this.structures, {
+    this.minionWaveManager.update(dt, this.structures, this.world, {
       x: this.player.x, y: this.player.y, z: this.player.z,
       isAlive: this.playerState.isAlive,
     });
