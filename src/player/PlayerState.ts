@@ -1,5 +1,5 @@
 // src/player/PlayerState.ts
-export const PLAYER_MAX_HP = 100;
+export const PLAYER_MAX_HP = 500;
 export const RESPAWN_TIME = 5.0;
 export const INVINCIBLE_TIME = 3.0;
 

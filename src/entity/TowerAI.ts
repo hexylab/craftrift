@@ -1,9 +1,10 @@
 import { Structure } from './Structure';
 import { Team } from './Entity';
+import { Minion } from './Minion';
 
 export const TOWER_ATTACK_RANGE = 15.0;
 export const TOWER_ATTACK_INTERVAL = 2.0;
-export const TOWER_DAMAGE = 25;
+export const TOWER_DAMAGE = 50;
 
 export interface FireCommand {
   originX: number;
@@ -11,6 +12,7 @@ export interface FireCommand {
   originZ: number;
   damage: number;
   team: Team;
+  targetId?: string; // minion target ID when targeting a minion
 }
 
 export class TowerAI {
@@ -20,15 +22,29 @@ export class TowerAI {
 
   update(
     dt: number,
-    targetX: number,
-    targetY: number,
-    targetZ: number,
-    targetAlive: boolean,
+    playerTarget: { x: number; y: number; z: number; isAlive: boolean },
+    enemyMinions: Minion[],
   ): FireCommand | null {
     if (!this.structure.isAlive) return null;
-    if (!targetAlive) return null;
 
-    if (!this.isInRange(targetX, targetY, targetZ)) {
+    // 1. Find closest alive enemy minion in range
+    let minionTarget: Minion | null = null;
+    let minDist = Infinity;
+    for (const m of enemyMinions) {
+      if (!m.isAlive) continue;
+      if (!this.isInRange(m.x, m.y, m.z)) continue;
+      const dx = m.x - this.getCenterX();
+      const dy = m.y - this.getCenterY();
+      const dz = m.z - this.getCenterZ();
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d < minDist) { minDist = d; minionTarget = m; }
+    }
+
+    // 2. If no minion, check player
+    const hasTarget = minionTarget !== null ||
+      (playerTarget.isAlive && this.isInRange(playerTarget.x, playerTarget.y, playerTarget.z));
+
+    if (!hasTarget) {
       this.attackTimer = 0;
       return null;
     }
@@ -42,6 +58,7 @@ export class TowerAI {
         originZ: this.getCenterZ(),
         damage: TOWER_DAMAGE,
         team: this.structure.team,
+        targetId: minionTarget?.id,
       };
     }
     return null;

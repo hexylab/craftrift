@@ -10,6 +10,7 @@ export class InputManager {
 
   constructor(private canvas: HTMLCanvasElement) {
     document.addEventListener('keydown', (e) => {
+      if (e.code === 'F5') e.preventDefault();
       this.keys.add(e.code);
       if (!e.repeat) {
         this.pressedKeys.add(e.code);

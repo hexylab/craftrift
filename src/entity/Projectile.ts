@@ -6,12 +6,20 @@ export const PROJECTILE_MAX_LIFETIME = 5.0;
 export const PLAYER_HIT_RADIUS = 0.3;
 export const PROJECTILE_TURN_RATE = 1.5; // radians/sec — 旋回速度制限
 
+export interface ProjectileTarget {
+  x: number;
+  y: number;
+  z: number;
+  isAlive: boolean;
+}
+
 export class Projectile {
   x: number;
   y: number;
   z: number;
   readonly damage: number;
   readonly team: Team;
+  readonly target: ProjectileTarget;
   private lifetime: number = 0;
   alive: boolean = true;
   // 現在の飛翔方向（正規化済み）
@@ -20,16 +28,17 @@ export class Projectile {
   private dirZ: number;
 
   constructor(x: number, y: number, z: number, damage: number, team: Team,
-    targetX: number, targetY: number, targetZ: number) {
+    target: ProjectileTarget) {
     this.x = x;
     this.y = y;
     this.z = z;
     this.damage = damage;
     this.team = team;
+    this.target = target;
     // 初期方向: 発射時のターゲットへ向かう
-    const dx = targetX - x;
-    const dy = targetY - y;
-    const dz = targetZ - z;
+    const dx = target.x - x;
+    const dy = target.y - y;
+    const dz = target.z - z;
     const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (dist > 0) {
       this.dirX = dx / dist;
@@ -42,12 +51,22 @@ export class Projectile {
     }
   }
 
-  update(dt: number, targetX: number, targetY: number, targetZ: number): boolean {
+  update(dt: number): boolean {
+    // ターゲットが死亡したら弾を消滅させる
+    if (!this.target.isAlive) {
+      this.alive = false;
+      return false;
+    }
+
     this.lifetime += dt;
     if (this.lifetime >= PROJECTILE_MAX_LIFETIME) {
       this.alive = false;
       return false;
     }
+
+    const targetX = this.target.x;
+    const targetY = this.target.y;
+    const targetZ = this.target.z;
 
     const dx = targetX - this.x;
     const dy = targetY - this.y;
