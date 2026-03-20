@@ -16,7 +16,7 @@ import { TowerAI } from '../entity/TowerAI';
 import { ProjectileManager } from '../entity/ProjectileManager';
 import { ScreenShake } from '../effects/ScreenShake';
 
-const DEBUG_DAMAGE = 50;
+const DEBUG_DAMAGE = 100;
 
 export class Game {
   private renderer!: Renderer;
