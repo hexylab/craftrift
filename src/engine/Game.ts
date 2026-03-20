@@ -89,10 +89,10 @@ export class Game {
     this.playerTarget = { x: 0, y: 0, z: 0, isAlive: true };
 
     const textureLoader = new THREE.TextureLoader();
-    const sheepBlueTexture = await textureLoader.loadAsync('/textures/mobs/minion_blue.png');
+    const sheepBlueTexture = await textureLoader.loadAsync('/textures/mobs/blue_sheep.png');
     sheepBlueTexture.magFilter = THREE.NearestFilter;
     sheepBlueTexture.minFilter = THREE.NearestFilter;
-    const sheepRedTexture = await textureLoader.loadAsync('/textures/mobs/minion_red.png');
+    const sheepRedTexture = await textureLoader.loadAsync('/textures/mobs/red_sheep.png');
     sheepRedTexture.magFilter = THREE.NearestFilter;
     sheepRedTexture.minFilter = THREE.NearestFilter;
 
