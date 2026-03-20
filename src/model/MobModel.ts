@@ -35,7 +35,10 @@ function applyFaceUVs(geometry: THREE.BoxGeometry, part: PartDefinition, texW: n
  */
 export function buildModel(def: ModelDefinition, texture: THREE.Texture): THREE.Group {
   const root = new THREE.Group();
-  const material = new THREE.MeshLambertMaterial({ map: texture });
+  const material = new THREE.MeshLambertMaterial({
+    map: texture,
+    side: THREE.DoubleSide, // Minecraft風モデルでは回転した腕/脚の内側面も見えるため両面レンダリング
+  });
 
   for (const part of def.parts) {
     const [w, h, d] = part.size;
