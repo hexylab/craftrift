@@ -1,9 +1,9 @@
 import { Team } from './Entity';
 
-export const PROJECTILE_SPEED = 8.0;
+export const PROJECTILE_SPEED = 6.0;
 export const PROJECTILE_RADIUS = 0.2;
 export const PROJECTILE_MAX_LIFETIME = 5.0;
-export const PLAYER_HIT_RADIUS = 0.5;
+export const PLAYER_HIT_RADIUS = 0.3;
 
 export class Projectile {
   x: number;

@@ -88,7 +88,16 @@ export class Game {
     this.lastTime = time;
     this.update(dt, time);
     this.renderer.render();
-    requestAnimationFrame((t) => this.loop(t));
+    this.scheduleNextFrame();
+  }
+
+  private scheduleNextFrame(): void {
+    if (document.hidden) {
+      // タブ非アクティブ時はsetTimeoutでループ継続（~60fps相当）
+      setTimeout(() => this.loop(performance.now()), 16);
+    } else {
+      requestAnimationFrame((t) => this.loop(t));
+    }
   }
 
   private update(dt: number, time: number): void {
