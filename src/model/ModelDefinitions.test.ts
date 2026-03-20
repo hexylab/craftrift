@@ -2,15 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { SHEEP_MODEL, PLAYER_MODEL } from './ModelDefinitions';
 
 describe('SHEEP_MODEL Minecraft compliance', () => {
-  it('head has correct dimensions (ModelSheep2.java: 6,6,8)', () => {
+  it('head has wool dimensions (ModelSheep1: 6,6,6 + 0.6 inflation = 7.2)', () => {
     const head = SHEEP_MODEL.parts.find(p => p.name === 'head')!;
-    expect(head.size).toEqual([6, 6, 8]);
+    expect(head.size).toEqual([7.2, 7.2, 7.2]);
+    // UV座標はModelSheep2のスキンレイアウト準拠
     expect(head.skinRegion).toMatchObject({ originX: 0, originY: 0, w: 6, h: 6, d: 8 });
   });
 
-  it('body has correct dimensions (ModelSheep2.java: 8,16,6)', () => {
+  it('body has wool dimensions (ModelSheep1: 8,16,6 + 1.75 inflation = 11.5,19.5,9.5)', () => {
     const body = SHEEP_MODEL.parts.find(p => p.name === 'body')!;
-    expect(body.size).toEqual([8, 16, 6]);
+    expect(body.size).toEqual([11.5, 19.5, 9.5]);
     expect(body.skinRegion).toMatchObject({ originX: 28, originY: 8, w: 8, h: 16, d: 6 });
   });
 
@@ -55,22 +56,23 @@ describe('SHEEP_MODEL Minecraft compliance', () => {
     expect(lbLeg.pivot).toEqual([3, 12, -7]);
   });
 
-  it('head offset converts from MC addBox(-3,-4,-6, 6,6,8)', () => {
+  it('head offset converts from MC addBox(-3,-4,-4, 6,6,6, 0.6)', () => {
     const head = SHEEP_MODEL.parts.find(p => p.name === 'head')!;
-    // MC center = (0, -1, -2), Three.js offset = (0, 1, 2)
-    expect(head.offset).toEqual([0, 1, 2]);
+    // MC center = (0, -1, -1), Three.js offset = (0, 1, 1)
+    expect(head.offset).toEqual([0, 1, 1]);
   });
 
   it('body offset converts from MC addBox(-4,-10,-7, 8,16,6) with -PI/2 X rotation', () => {
     const body = SHEEP_MODEL.parts.find(p => p.name === 'body')!;
     // mcBoxCenter=(0,-2,-4), worldOffset=(0,2,4), localInverse(-PI/2 X): (0,-4,2)
+    // inflation doesn't change center position
     expect(body.offset).toEqual([0, -4, 2]);
   });
 
-  it('leg offsets convert from MC addBox(-2,0,-2, 4,12,4)', () => {
+  it('leg offsets convert from MC addBox(-2,0,-2, 4,6,4, 0.5)', () => {
     const leg = SHEEP_MODEL.parts.find(p => p.name === 'rightFrontLeg')!;
-    // MC center = (0, 6, 0), Three.js offset = (0, -6, 0)
-    expect(leg.offset).toEqual([0, -6, 0]);
+    // MC center = (0, 3, 0), Three.js offset = (0, -3, 0)
+    expect(leg.offset).toEqual([0, -3, 0]);
   });
 
   it('all parts have offset defined', () => {
