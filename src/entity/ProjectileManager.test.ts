@@ -44,13 +44,13 @@ describe('ProjectileManager', () => {
 
   it('spawn adds a projectile and mesh to scene', () => {
     const command: FireCommand = { originX: 0, originY: 5, originZ: 0, damage: 25, team: 'red' };
-    manager.spawn(command);
+    manager.spawn(command, 100, 0, 0);
     expect(scene.children.length).toBe(1);
   });
 
   it('update moves projectiles', () => {
     const command: FireCommand = { originX: 0, originY: 0, originZ: 0, damage: 25, team: 'red' };
-    manager.spawn(command);
+    manager.spawn(command, 100, 0, 0);
     const hits = manager.update(0.5, 100, 0, 0);
     expect(hits.length).toBe(0);
     const mesh = scene.children[0] as THREE.Mesh;
@@ -59,7 +59,7 @@ describe('ProjectileManager', () => {
 
   it('update returns HitResult when projectile hits', () => {
     const command: FireCommand = { originX: 0, originY: 0, originZ: 0, damage: 25, team: 'red' };
-    manager.spawn(command);
+    manager.spawn(command, 100, 0, 0);
     const hits = manager.update(0.001, 0.1, 0, 0);
     expect(hits.length).toBe(1);
     expect(hits[0].damage).toBe(25);
@@ -69,14 +69,14 @@ describe('ProjectileManager', () => {
 
   it('removes expired projectiles', () => {
     const command: FireCommand = { originX: 0, originY: 0, originZ: 0, damage: 25, team: 'red' };
-    manager.spawn(command);
+    manager.spawn(command, 100, 0, 0);
     manager.update(PROJECTILE_MAX_LIFETIME + 1, 1000, 0, 0);
     expect(scene.children.length).toBe(0);
   });
 
   it('dispose removes all projectiles', () => {
-    manager.spawn({ originX: 0, originY: 0, originZ: 0, damage: 25, team: 'red' });
-    manager.spawn({ originX: 5, originY: 0, originZ: 0, damage: 25, team: 'red' });
+    manager.spawn({ originX: 0, originY: 0, originZ: 0, damage: 25, team: 'red' }, 100, 0, 0);
+    manager.spawn({ originX: 5, originY: 0, originZ: 0, damage: 25, team: 'red' }, 100, 0, 0);
     expect(scene.children.length).toBe(2);
     manager.dispose();
     expect(scene.children.length).toBe(0);

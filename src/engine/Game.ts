@@ -159,7 +159,7 @@ export class Game {
       if (ai.structure.team === 'blue') continue;
       const cmd = ai.update(dt, this.player.x, this.player.y, this.player.z, this.playerState.isAlive);
       if (cmd) {
-        this.projectileManager.spawn(cmd);
+        this.projectileManager.spawn(cmd, this.player.x, this.player.y + PLAYER_HEIGHT / 2, this.player.z);
       }
     }
 

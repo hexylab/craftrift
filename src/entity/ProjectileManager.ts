@@ -14,10 +14,11 @@ export class ProjectileManager {
 
   constructor(private scene: THREE.Scene) {}
 
-  spawn(command: FireCommand): void {
+  spawn(command: FireCommand, targetX: number, targetY: number, targetZ: number): void {
     const projectile = new Projectile(
       command.originX, command.originY, command.originZ,
       command.damage, command.team,
+      targetX, targetY, targetZ,
     );
     this.projectiles.push(projectile);
 
