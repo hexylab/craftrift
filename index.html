@@ -99,6 +99,48 @@
     <h1 style="font-size: 4rem; color: #ffd700;">VICTORY</h1>
     <p style="font-size: 1.2rem; margin-top: 1rem;">敵ネクサスを破壊した！</p>
   </div>
+  <div id="player-hp" style="
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    font-family: monospace;
+    color: white;
+    pointer-events: none;
+    z-index: 10;
+  ">
+    <div id="player-hp-bar-container" style="
+      width: 200px;
+      height: 10px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 5px;
+      overflow: hidden;
+    ">
+      <div id="player-hp-bar-fill" style="
+        height: 100%;
+        width: 100%;
+        background-color: #44bb44;
+        transition: width 0.1s;
+      "></div>
+    </div>
+    <div id="player-hp-text" style="font-size: 12px; margin-top: 2px; opacity: 0.8;">100 / 100</div>
+  </div>
+  <div id="death-overlay" style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    font-family: monospace;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 50;
+  ">
+    <h2 style="font-size: 2.5rem; color: #dd3333;">DEAD</h2>
+    <p id="respawn-timer" style="font-size: 1.5rem; margin-top: 1rem;">リスポーンまで: 5秒</p>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
