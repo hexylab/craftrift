@@ -4,7 +4,7 @@ import { Renderer } from './Renderer';
 import { InputManager } from './InputManager';
 import { World } from '../world/World';
 import { generateARAMMap, SPAWN_POSITION } from '../world/MapData';
-import { Player } from '../player/Player';
+import { Player, PLAYER_HEIGHT } from '../player/Player';
 import { BlockInteraction } from '../player/BlockInteraction';
 import { TextureAtlas } from '../utils/TextureLoader';
 import { buildChunkGeometryData } from '../world/ChunkMesher';
@@ -15,7 +15,6 @@ import { PlayerState } from '../player/PlayerState';
 import { TowerAI } from '../entity/TowerAI';
 import { ProjectileManager } from '../entity/ProjectileManager';
 import { ScreenShake } from '../effects/ScreenShake';
-import { PLAYER_HEIGHT } from '../player/Player';
 
 const DEBUG_DAMAGE = 50;
 
