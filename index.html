@@ -141,6 +141,29 @@
     <h2 style="font-size: 2.5rem; color: #dd3333;">DEAD</h2>
     <p id="respawn-timer" style="font-size: 1.5rem; margin-top: 1rem;">リスポーンまで: 5秒</p>
   </div>
+  <div id="tower-warning" style="
+    display: none;
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: monospace;
+    font-size: 14px;
+    color: #ff6666;
+    background: rgba(0,0,0,0.5);
+    padding: 4px 12px;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 10;
+  ">タワーに狙われています</div>
+  <div id="damage-flash" style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 0, 0, 0.3);
+    pointer-events: none;
+    z-index: 40;
+  "></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

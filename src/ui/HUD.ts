@@ -2,6 +2,8 @@
 import { Structure } from '../entity/Structure';
 import { AttackResult } from '../entity/CombatSystem';
 
+export const DAMAGE_FLASH_DURATION = 0.15;
+
 export class HUD {
   private targetInfoEl: HTMLElement | null;
   private targetNameEl: HTMLElement | null;
@@ -14,6 +16,9 @@ export class HUD {
   private playerHpTextEl: HTMLElement | null;
   private deathOverlayEl: HTMLElement | null;
   private respawnTimerEl: HTMLElement | null;
+  private towerWarningEl: HTMLElement | null;
+  private damageFlashEl: HTMLElement | null;
+  private damageFlashTimer: number = 0;
 
   constructor() {
     this.targetInfoEl = document.getElementById('target-info');
@@ -26,6 +31,8 @@ export class HUD {
     this.playerHpTextEl = document.getElementById('player-hp-text');
     this.deathOverlayEl = document.getElementById('death-overlay');
     this.respawnTimerEl = document.getElementById('respawn-timer');
+    this.towerWarningEl = document.getElementById('tower-warning');
+    this.damageFlashEl = document.getElementById('damage-flash');
   }
 
   showTarget(structure: Structure): void {
@@ -112,6 +119,42 @@ export class HUD {
   hideDeathScreen(): void {
     if (this.deathOverlayEl) {
       this.deathOverlayEl.style.display = 'none';
+    }
+  }
+
+  showTowerWarning(): void {
+    if (this.towerWarningEl) {
+      this.towerWarningEl.style.display = 'block';
+    }
+  }
+
+  hideTowerWarning(): void {
+    if (this.towerWarningEl) {
+      this.towerWarningEl.style.display = 'none';
+    }
+  }
+
+  triggerDamageFlash(): void {
+    if (this.damageFlashEl) {
+      this.damageFlashEl.style.display = 'block';
+      this.damageFlashEl.style.opacity = '0.3';
+    }
+    this.damageFlashTimer = DAMAGE_FLASH_DURATION;
+  }
+
+  updateDamageFlash(dt: number): void {
+    if (this.damageFlashTimer <= 0) return;
+    this.damageFlashTimer -= dt;
+    if (this.damageFlashTimer <= 0) {
+      this.damageFlashTimer = 0;
+      if (this.damageFlashEl) {
+        this.damageFlashEl.style.display = 'none';
+      }
+      return;
+    }
+    if (this.damageFlashEl) {
+      const opacity = (this.damageFlashTimer / DAMAGE_FLASH_DURATION) * 0.3;
+      this.damageFlashEl.style.opacity = String(opacity);
     }
   }
 }

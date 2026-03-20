@@ -4,7 +4,7 @@ import { Renderer } from './Renderer';
 import { InputManager } from './InputManager';
 import { World } from '../world/World';
 import { generateARAMMap, SPAWN_POSITION } from '../world/MapData';
-import { Player } from '../player/Player';
+import { Player, PLAYER_HEIGHT } from '../player/Player';
 import { BlockInteraction } from '../player/BlockInteraction';
 import { TextureAtlas } from '../utils/TextureLoader';
 import { buildChunkGeometryData } from '../world/ChunkMesher';
@@ -12,6 +12,9 @@ import { CombatSystem } from '../entity/CombatSystem';
 import { HUD } from '../ui/HUD';
 import { Structure } from '../entity/Structure';
 import { PlayerState } from '../player/PlayerState';
+import { TowerAI } from '../entity/TowerAI';
+import { ProjectileManager } from '../entity/ProjectileManager';
+import { ScreenShake } from '../effects/ScreenShake';
 
 const DEBUG_DAMAGE = 50;
 
@@ -30,7 +33,11 @@ export class Game {
   private hud!: HUD;
   private structures!: Structure[];
   private gameOver = false;
+  private gameStarted = false;
   private playerState!: PlayerState;
+  private towerAIs!: TowerAI[];
+  private projectileManager!: ProjectileManager;
+  private screenShake!: ScreenShake;
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -58,6 +65,10 @@ export class Game {
       // 将来のインベントリドロップ拡張ポイント
     });
 
+    this.towerAIs = this.structures.map(s => new TowerAI(s));
+    this.projectileManager = new ProjectileManager(this.renderer.scene);
+    this.screenShake = new ScreenShake();
+
     this.player = new Player(
       SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z,
       this.world,
@@ -78,15 +89,34 @@ export class Game {
     this.lastTime = time;
     this.update(dt, time);
     this.renderer.render();
-    requestAnimationFrame((t) => this.loop(t));
+    this.scheduleNextFrame();
+  }
+
+  private scheduleNextFrame(): void {
+    if (document.hidden) {
+      // タブ非アクティブ時はsetTimeoutでループ継続（~60fps相当）
+      setTimeout(() => this.loop(performance.now()), 16);
+    } else {
+      requestAnimationFrame((t) => this.loop(t));
+    }
   }
 
   private update(dt: number, time: number): void {
-    if (this.instructionsEl) {
-      this.instructionsEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
+    // 初回クリック前はインストラクション表示、ゲーム未開始
+    if (!this.gameStarted) {
+      if (this.instructionsEl) {
+        this.instructionsEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
+      }
+      if (this.input.isPointerLocked) {
+        this.gameStarted = true;
+      } else {
+        return;
+      }
     }
-    if (!this.input.isPointerLocked) return;
+
     if (this.gameOver) return;
+
+    // === シミュレーション（常に実行、Pointer Lock不要） ===
 
     // PlayerState更新（リスポーン判定）
     const respawned = this.playerState.update(dt);
@@ -102,22 +132,85 @@ export class Game {
       this.hud.hideDeathScreen();
     }
 
-    // 死亡中は操作不可
+    // 重力は常に適用
+    this.player.updatePhysics(dt);
+
+    // タワーAI更新（敵チームのみ）
+    for (const ai of this.towerAIs) {
+      if (ai.structure.team === 'blue') continue;
+      const cmd = ai.update(dt, this.player.x, this.player.y, this.player.z, this.playerState.isAlive);
+      if (cmd) {
+        this.projectileManager.spawn(cmd, this.player.x, this.player.y + PLAYER_HEIGHT / 2, this.player.z);
+      }
+    }
+
+    // プロジェクタイル更新
+    const projectileHits = this.projectileManager.update(
+      dt, this.player.x, this.player.y + PLAYER_HEIGHT / 2, this.player.z,
+    );
+    for (const hit of projectileHits) {
+      if (!this.playerState.isInvincible()) {
+        this.playerState.takeDamage(hit.damage);
+        this.screenShake.trigger();
+        this.hud.triggerDamageFlash();
+      }
+    }
+
+    // 死亡中のHUD表示
     if (!this.playerState.isAlive) {
       this.hud.showDeathScreen(this.playerState.respawnTimer);
       this.input.consumeLeftClick();
       this.input.consumeRightClick();
+    }
+
+    // プレイヤーHP HUD更新
+    this.hud.updatePlayerHp(
+      this.playerState.hp,
+      this.playerState.maxHp,
+      this.playerState.isInvincible(),
+    );
+
+    // タワー警告HUD
+    const inTowerRange = this.towerAIs.some(
+      ai => ai.structure.team !== 'blue' && ai.structure.isAlive && ai.isInRange(this.player.x, this.player.y, this.player.z),
+    );
+    if (inTowerRange) {
+      this.hud.showTowerWarning();
+    } else {
+      this.hud.hideTowerWarning();
+    }
+
+    // ダメージフラッシュ更新
+    this.hud.updateDamageFlash(dt);
+
+    // === 入力処理（Pointer Lock + 生存中のみ） ===
+
+    if (!this.input.isPointerLocked || !this.playerState.isAlive) {
+      // シェイクとカメラ同期は実行
+      this.renderer.fpsCamera.setPosition(
+        this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+      );
+      const shake = this.screenShake.update(dt);
+      if (shake.offsetX !== 0 || shake.offsetY !== 0) {
+        this.renderer.fpsCamera.setPosition(
+          this.player.eyeX + shake.offsetX,
+          this.player.eyeY + shake.offsetY,
+          this.player.eyeZ,
+        );
+      }
       return;
     }
 
+    // マウス操作
     const mouse = this.input.getMouseMovement();
     this.renderer.fpsCamera.rotate(mouse.x, mouse.y);
 
+    // ジャンプ
     if (this.input.isKeyDown('Space')) {
       this.player.jump();
     }
-    this.player.updatePhysics(dt);
 
+    // WASD移動
     const forward = this.renderer.fpsCamera.getForward();
     const right = this.renderer.fpsCamera.getRight();
     let moveX = 0, moveZ = 0;
@@ -135,6 +228,7 @@ export class Game {
       this.player.eyeX, this.player.eyeY, this.player.eyeZ,
     );
 
+    // レイキャスト・戦闘
     const dir = this.renderer.fpsCamera.getDirection();
 
     const targetStructure = this.combatSystem.findTarget(
@@ -143,7 +237,7 @@ export class Game {
       this.structures,
     );
 
-    const hit = this.blockInteraction.update(
+    const blockHit = this.blockInteraction.update(
       this.player.eyeX, this.player.eyeY, this.player.eyeZ,
       dir.x, dir.y, dir.z,
     );
@@ -161,16 +255,16 @@ export class Game {
         }
       } else if (result.reason === 'protected') {
         this.hud.showProtected();
-      } else if (result.reason === 'no_target' && hit) {
-        if (this.blockInteraction.breakBlock(hit)) {
+      } else if (result.reason === 'no_target' && blockHit) {
+        if (this.blockInteraction.breakBlock(blockHit)) {
           this.rebuildDirtyChunks();
         }
       }
     }
 
     if (this.input.consumeRightClick()) {
-      if (hit) {
-        if (this.blockInteraction.placeBlock(hit, this.player.x, this.player.y, this.player.z)) {
+      if (blockHit) {
+        if (this.blockInteraction.placeBlock(blockHit, this.player.x, this.player.y, this.player.z)) {
           this.rebuildDirtyChunks();
         }
       }
@@ -184,15 +278,22 @@ export class Game {
 
     // デバッグ: Kキーで自傷ダメージ
     if (this.input.consumeKeyPress('KeyK')) {
-      this.playerState.takeDamage(DEBUG_DAMAGE);
+      if (!this.playerState.isInvincible()) {
+        this.playerState.takeDamage(DEBUG_DAMAGE);
+        this.screenShake.trigger();
+        this.hud.triggerDamageFlash();
+      }
     }
 
-    // プレイヤーHP HUD更新
-    this.hud.updatePlayerHp(
-      this.playerState.hp,
-      this.playerState.maxHp,
-      this.playerState.isInvincible(),
-    );
+    // 画面シェイク適用（フレーム最後）
+    const shake = this.screenShake.update(dt);
+    if (shake.offsetX !== 0 || shake.offsetY !== 0) {
+      this.renderer.fpsCamera.setPosition(
+        this.player.eyeX + shake.offsetX,
+        this.player.eyeY + shake.offsetY,
+        this.player.eyeZ,
+      );
+    }
   }
 
   private checkVictory(): void {
