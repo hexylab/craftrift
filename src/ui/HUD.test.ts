@@ -48,7 +48,15 @@ function setupDOM(): void {
   respawnTimer.id = 'respawn-timer';
   deathOverlay.appendChild(respawnTimer);
 
-  document.body.append(targetInfo, feedback, victory, playerHpBarFill, playerHpText, deathOverlay);
+  const towerWarning = document.createElement('div');
+  towerWarning.id = 'tower-warning';
+  towerWarning.style.display = 'none';
+
+  const damageFlash = document.createElement('div');
+  damageFlash.id = 'damage-flash';
+  damageFlash.style.display = 'none';
+
+  document.body.append(targetInfo, feedback, victory, playerHpBarFill, playerHpText, deathOverlay, towerWarning, damageFlash);
 }
 
 function createStructure(hp: number, maxHp: number): Structure {
@@ -181,6 +189,49 @@ describe('HUD', () => {
       hud.showDeathScreen(5);
       hud.hideDeathScreen();
       expect(document.getElementById('death-overlay')!.style.display).toBe('none');
+    });
+  });
+
+  describe('tower warning', () => {
+    it('showTowerWarning displays warning', () => {
+      const hud = new HUD();
+      hud.showTowerWarning();
+      expect(document.getElementById('tower-warning')!.style.display).toBe('block');
+    });
+
+    it('hideTowerWarning hides warning', () => {
+      const hud = new HUD();
+      hud.showTowerWarning();
+      hud.hideTowerWarning();
+      expect(document.getElementById('tower-warning')!.style.display).toBe('none');
+    });
+  });
+
+  describe('damage flash', () => {
+    it('triggerDamageFlash shows flash', () => {
+      const hud = new HUD();
+      hud.triggerDamageFlash();
+      const el = document.getElementById('damage-flash')!;
+      expect(el.style.display).toBe('block');
+      expect(el.style.opacity).toBe('0.3');
+    });
+
+    it('updateDamageFlash fades out over time', () => {
+      const hud = new HUD();
+      hud.triggerDamageFlash();
+      hud.updateDamageFlash(0.075);
+      const el = document.getElementById('damage-flash')!;
+      const opacity = parseFloat(el.style.opacity);
+      expect(opacity).toBeGreaterThan(0);
+      expect(opacity).toBeLessThan(0.3);
+    });
+
+    it('updateDamageFlash hides after duration', () => {
+      const hud = new HUD();
+      hud.triggerDamageFlash();
+      hud.updateDamageFlash(0.2);
+      const el = document.getElementById('damage-flash')!;
+      expect(el.style.display).toBe('none');
     });
   });
 });
