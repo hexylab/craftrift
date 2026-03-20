@@ -28,9 +28,7 @@ export class Chunk {
   }
 
   private inBounds(x: number, y: number, z: number): boolean {
-    return x >= 0 && x < CHUNK_SIZE &&
-           y >= 0 && y < CHUNK_SIZE &&
-           z >= 0 && z < CHUNK_SIZE;
+    return x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE;
   }
 
   getBlock(x: number, y: number, z: number): BlockType {

@@ -9,8 +9,12 @@ export interface KnockbackState {
 
 export function applyKnockback(
   state: KnockbackState,
-  sourceX: number, sourceY: number, sourceZ: number,
-  targetX: number, targetY: number, targetZ: number,
+  sourceX: number,
+  sourceY: number,
+  sourceZ: number,
+  targetX: number,
+  targetY: number,
+  targetZ: number,
 ): void {
   let dx = targetX - sourceX;
   let dz = targetZ - sourceZ;

@@ -5,8 +5,16 @@ import { PROJECTILE_MAX_LIFETIME } from './Projectile';
 
 vi.mock('three', () => {
   class MockVector3 {
-    constructor(public x = 0, public y = 0, public z = 0) {}
-    set(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z; }
+    constructor(
+      public x = 0,
+      public y = 0,
+      public z = 0,
+    ) {}
+    set(x: number, y: number, z: number) {
+      this.x = x;
+      this.y = y;
+      this.z = z;
+    }
   }
   class MockMesh {
     position = new MockVector3();
@@ -15,9 +23,11 @@ vi.mock('three', () => {
   class MockSphereGeometry {}
   class MockMeshStandardMaterial {}
   class MockScene {
-    children: any[] = [];
-    add(obj: any) { this.children.push(obj); }
-    remove(obj: any) {
+    children: unknown[] = [];
+    add(obj: unknown) {
+      this.children.push(obj);
+    }
+    remove(obj: unknown) {
       const i = this.children.indexOf(obj);
       if (i >= 0) this.children.splice(i, 1);
     }
@@ -77,8 +87,14 @@ describe('ProjectileManager', () => {
   });
 
   it('dispose removes all projectiles', () => {
-    manager.spawn({ originX: 0, originY: 0, originZ: 0, damage: 25, team: 'red' }, { x: 100, y: 0, z: 0, isAlive: true });
-    manager.spawn({ originX: 5, originY: 0, originZ: 0, damage: 25, team: 'red' }, { x: 100, y: 0, z: 0, isAlive: true });
+    manager.spawn(
+      { originX: 0, originY: 0, originZ: 0, damage: 25, team: 'red' },
+      { x: 100, y: 0, z: 0, isAlive: true },
+    );
+    manager.spawn(
+      { originX: 5, originY: 0, originZ: 0, damage: 25, team: 'red' },
+      { x: 100, y: 0, z: 0, isAlive: true },
+    );
     expect(scene.children.length).toBe(2);
     manager.dispose();
     expect(scene.children.length).toBe(0);

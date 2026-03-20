@@ -19,6 +19,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Lint
+        run: npx eslint src/
+
+      - name: Format check
+        run: npx prettier --check src/
+
       - name: Type check
         run: npx tsc --noEmit
 

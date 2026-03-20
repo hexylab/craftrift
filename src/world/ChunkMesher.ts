@@ -11,16 +11,78 @@ export interface ChunkGeometryData {
 type GetBlockFn = (wx: number, wy: number, wz: number) => BlockType;
 
 const FACES = [
-  { dir: [1, 0, 0], corners: [[1,0,0],[1,1,0],[1,1,1],[1,0,1]], normal: [1,0,0], uvFace: 'side' as const },
-  { dir: [-1, 0, 0], corners: [[0,0,1],[0,1,1],[0,1,0],[0,0,0]], normal: [-1,0,0], uvFace: 'side' as const },
-  { dir: [0, 1, 0], corners: [[0,1,0],[0,1,1],[1,1,1],[1,1,0]], normal: [0,1,0], uvFace: 'top' as const },
-  { dir: [0, -1, 0], corners: [[0,0,1],[0,0,0],[1,0,0],[1,0,1]], normal: [0,-1,0], uvFace: 'bottom' as const },
-  { dir: [0, 0, 1], corners: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]], normal: [0,0,1], uvFace: 'side' as const },
-  { dir: [0, 0, -1], corners: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]], normal: [0,0,-1], uvFace: 'side' as const },
+  {
+    dir: [1, 0, 0],
+    corners: [
+      [1, 0, 0],
+      [1, 1, 0],
+      [1, 1, 1],
+      [1, 0, 1],
+    ],
+    normal: [1, 0, 0],
+    uvFace: 'side' as const,
+  },
+  {
+    dir: [-1, 0, 0],
+    corners: [
+      [0, 0, 1],
+      [0, 1, 1],
+      [0, 1, 0],
+      [0, 0, 0],
+    ],
+    normal: [-1, 0, 0],
+    uvFace: 'side' as const,
+  },
+  {
+    dir: [0, 1, 0],
+    corners: [
+      [0, 1, 0],
+      [0, 1, 1],
+      [1, 1, 1],
+      [1, 1, 0],
+    ],
+    normal: [0, 1, 0],
+    uvFace: 'top' as const,
+  },
+  {
+    dir: [0, -1, 0],
+    corners: [
+      [0, 0, 1],
+      [0, 0, 0],
+      [1, 0, 0],
+      [1, 0, 1],
+    ],
+    normal: [0, -1, 0],
+    uvFace: 'bottom' as const,
+  },
+  {
+    dir: [0, 0, 1],
+    corners: [
+      [0, 0, 1],
+      [1, 0, 1],
+      [1, 1, 1],
+      [0, 1, 1],
+    ],
+    normal: [0, 0, 1],
+    uvFace: 'side' as const,
+  },
+  {
+    dir: [0, 0, -1],
+    corners: [
+      [1, 0, 0],
+      [0, 0, 0],
+      [0, 1, 0],
+      [1, 1, 0],
+    ],
+    normal: [0, 0, -1],
+    uvFace: 'side' as const,
+  },
 ];
 
 export function buildChunkGeometryData(
-  chunkX: number, chunkY: number, chunkZ: number,
+  chunkX: number,
+  chunkY: number,
+  chunkZ: number,
   getBlock: GetBlockFn,
 ): ChunkGeometryData {
   const positions: number[] = [];
@@ -67,8 +129,12 @@ export function buildChunkGeometryData(
           uvs.push(u0, v0, u0, v1, u1, v1, u1, v0);
 
           indices.push(
-            vertexStart, vertexStart + 1, vertexStart + 2,
-            vertexStart, vertexStart + 2, vertexStart + 3,
+            vertexStart,
+            vertexStart + 1,
+            vertexStart + 2,
+            vertexStart,
+            vertexStart + 2,
+            vertexStart + 3,
           );
         }
       }

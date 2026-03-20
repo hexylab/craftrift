@@ -24,7 +24,7 @@ describe('HealthBar3D', () => {
   it('is invisible when dead (hp=0)', () => {
     const sprite = createHealthBar(1.5);
     updateHealthBar(sprite, 100, 150); // まず表示させる
-    updateHealthBar(sprite, 0, 150);   // 死亡で非表示
+    updateHealthBar(sprite, 0, 150); // 死亡で非表示
     expect(sprite.visible).toBe(false);
   });
 

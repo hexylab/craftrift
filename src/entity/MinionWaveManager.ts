@@ -4,10 +4,21 @@ import { MinionAI, PlayerInfo } from './MinionAI';
 import { Structure } from './Structure';
 import { Team } from './Entity';
 import { KnockbackState, createKnockbackState } from '../physics/Knockback';
-import { applyGravity, moveWithCollision, tryJump, applyEntityKnockback } from '../physics/EntityPhysics';
+import {
+  applyGravity,
+  moveWithCollision,
+  tryJump,
+  applyEntityKnockback,
+} from '../physics/EntityPhysics';
 import { WalkAnimator, AttackAnimator } from '../model/Animator';
 import { MINION_MOVE_SPEED } from './Minion';
-import { DamageFlashState, createDamageFlash, triggerFlash, updateFlash, applyFlashToMesh } from '../model/DamageFlash';
+import {
+  DamageFlashState,
+  createDamageFlash,
+  triggerFlash,
+  updateFlash,
+  applyFlashToMesh,
+} from '../model/DamageFlash';
 import { createHealthBar, updateHealthBar } from '../ui/HealthBar3D';
 
 /** EntityPhysicsが要求するWorldの最小インターフェース */
@@ -34,8 +45,8 @@ export class MinionWaveManager {
   private healthBars: Map<string, THREE.Sprite> = new Map();
   private waveTimer = WAVE_INTERVAL - FIRST_WAVE_DELAY; // 最初のウェーブはFIRST_WAVE_DELAY後
   private waveCount = 0;
-  private pendingSpawns = 0;         // 現在のウェーブで未スポーンのミニオン数
-  private spawnStaggerTimer = 0;     // 次のスポーンまでのタイマー
+  private pendingSpawns = 0; // 現在のウェーブで未スポーンのミニオン数
+  private spawnStaggerTimer = 0; // 次のスポーンまでのタイマー
   private pendingPlayerDamage = 0;
 
   constructor(
@@ -75,7 +86,7 @@ export class MinionWaveManager {
       if (!ai) continue;
 
       // AI update — Redミニオンにはプレイヤー（Blue）を敵として渡す
-      const enemyPlayer = (minion.team !== 'blue' && playerInfo) ? playerInfo : undefined;
+      const enemyPlayer = minion.team !== 'blue' && playerInfo ? playerInfo : undefined;
       const result = ai.update(dt, this.minions, this.structures, undefined, enemyPlayer);
 
       // 移動前の位置を記録（auto-jump判定用）
@@ -120,8 +131,9 @@ export class MinionWaveManager {
           // プレイヤーへのダメージはGame.tsで処理するためフラグを立てる
           this.pendingPlayerDamage += result.damage;
         } else {
-          const target = this.minions.find(m => m.id === result.targetId) ??
-            this.structures.find(s => s.id === result.targetId);
+          const target =
+            this.minions.find((m) => m.id === result.targetId) ??
+            this.structures.find((s) => s.id === result.targetId);
           if (target && target.isAlive) {
             target.takeDamage(result.damage);
             // ダメージを受けたミニオンにフラッシュを発動
@@ -151,11 +163,21 @@ export class MinionWaveManager {
           for (const child of mesh.children) {
             const g = child as THREE.Group;
             switch (g.name) {
-              case 'head':          g.rotation.x = angles.head;     break;
-              case 'rightFrontLeg': g.rotation.x = angles.rightArm; break;
-              case 'leftFrontLeg':  g.rotation.x = angles.leftArm;  break;
-              case 'rightBackLeg':  g.rotation.x = angles.rightLeg; break;
-              case 'leftBackLeg':   g.rotation.x = angles.leftLeg;  break;
+              case 'head':
+                g.rotation.x = angles.head;
+                break;
+              case 'rightFrontLeg':
+                g.rotation.x = angles.rightArm;
+                break;
+              case 'leftFrontLeg':
+                g.rotation.x = angles.leftArm;
+                break;
+              case 'rightBackLeg':
+                g.rotation.x = angles.rightLeg;
+                break;
+              case 'leftBackLeg':
+                g.rotation.x = angles.leftLeg;
+                break;
             }
           }
 
@@ -163,7 +185,9 @@ export class MinionWaveManager {
           if (result.state === 'attacking') {
             if (!attackAnim.isPlaying) attackAnim.play();
             const attackAngle = attackAnim.update(dt);
-            const headGroup = mesh.children.find(c => (c as THREE.Group).name === 'head') as THREE.Group;
+            const headGroup = mesh.children.find(
+              (c) => (c as THREE.Group).name === 'head',
+            ) as THREE.Group;
             if (headGroup) headGroup.rotation.x += attackAngle * 0.3;
           }
         }
@@ -246,7 +270,7 @@ export class MinionWaveManager {
     }
 
     // Remove dead minions
-    const dead = this.minions.filter(m => !m.isAlive);
+    const dead = this.minions.filter((m) => !m.isAlive);
     for (const m of dead) {
       const mesh = this.meshes.get(m.id);
       if (mesh) {
@@ -261,7 +285,7 @@ export class MinionWaveManager {
       this.damageFlashes.delete(m.id);
       this.healthBars.delete(m.id);
     }
-    this.minions = this.minions.filter(m => m.isAlive);
+    this.minions = this.minions.filter((m) => m.isAlive);
   }
 
   /** 1体のミニオンをスポーンする（全て同じ位置から出発） */
@@ -301,8 +325,12 @@ export class MinionWaveManager {
     this.attackAnimators.set(id, new AttackAnimator());
   }
 
-  getAllMinions(): Minion[] { return this.minions; }
-  getTeamMinions(team: Team): Minion[] { return this.minions.filter(m => m.team === team); }
+  getAllMinions(): Minion[] {
+    return this.minions;
+  }
+  getTeamMinions(team: Team): Minion[] {
+    return this.minions.filter((m) => m.team === team);
+  }
 
   getKnockback(id: string): KnockbackState | undefined {
     return this.knockbacks.get(id);

@@ -12,8 +12,8 @@ export interface PlayerInfo {
 }
 
 export const LANE_CENTER_X = 9.0;
-export const DETECTION_RANGE = 12.0;  // この範囲内の敵を追跡開始
-export const LEASH_RANGE = 16.0;     // この範囲を超えると追跡中止
+export const DETECTION_RANGE = 12.0; // この範囲内の敵を追跡開始
+export const LEASH_RANGE = 16.0; // この範囲を超えると追跡中止
 
 export type MinionAIState = 'walking' | 'chasing' | 'attacking';
 
@@ -125,7 +125,14 @@ export class MinionAI {
           // パス終端に到達 → 再計算
           this.pathTimer = PATH_RECALC_INTERVAL;
         }
-        return { state: 'walking', moveX: 0, moveZ: 0, targetId: null, damage: 0, shouldJump: false };
+        return {
+          state: 'walking',
+          moveX: 0,
+          moveZ: 0,
+          targetId: null,
+          damage: 0,
+          shouldJump: false,
+        };
       }
 
       return this.moveToward(wp.x, wp.z, dt, 'walking');
@@ -288,11 +295,11 @@ export class MinionAI {
     attackingMeId?: string,
     enemyPlayer?: PlayerInfo,
   ): Entity | null {
-    const enemyMinions = allMinions.filter(m => m.team !== this.minion.team && m.isAlive);
+    const enemyMinions = allMinions.filter((m) => m.team !== this.minion.team && m.isAlive);
 
     // 1. 自分を攻撃中の敵（最優先）
     if (attackingMeId) {
-      const attacker = enemyMinions.find(m => m.id === attackingMeId);
+      const attacker = enemyMinions.find((m) => m.id === attackingMeId);
       if (attacker && this.distanceTo(attacker) <= DETECTION_RANGE) {
         return attacker;
       }
@@ -311,7 +318,7 @@ export class MinionAI {
     }
 
     const enemyStructures = structures.filter(
-      s => s.team !== this.minion.team && s.isAlive && !s.isProtected(),
+      (s) => s.team !== this.minion.team && s.isAlive && !s.isProtected(),
     );
     for (const s of enemyStructures) {
       const d = this.distanceTo(s);
@@ -407,7 +414,7 @@ export class MinionAI {
    */
   private findNearestEnemyStructure(structures: Structure[]): Structure | null {
     const enemies = structures.filter(
-      s => s.team !== this.minion.team && s.isAlive && !s.isProtected(),
+      (s) => s.team !== this.minion.team && s.isAlive && !s.isProtected(),
     );
     if (enemies.length === 0) return null;
 
@@ -417,7 +424,7 @@ export class MinionAI {
       const aZ = a.z + a.depth / 2;
       const bZ = b.z + b.depth / 2;
       return direction > 0
-        ? aZ - bZ  // Blue: Z小さい敵構造物が優先（味方側に近い）
+        ? aZ - bZ // Blue: Z小さい敵構造物が優先（味方側に近い）
         : bZ - aZ; // Red: Z大きい敵構造物が優先
     });
     return enemies[0];

@@ -37,11 +37,15 @@ export class TowerAI {
       const dy = m.y - this.getCenterY();
       const dz = m.z - this.getCenterZ();
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (d < minDist) { minDist = d; minionTarget = m; }
+      if (d < minDist) {
+        minDist = d;
+        minionTarget = m;
+      }
     }
 
     // 2. If no minion, check player
-    const hasTarget = minionTarget !== null ||
+    const hasTarget =
+      minionTarget !== null ||
       (playerTarget.isAlive && this.isInRange(playerTarget.x, playerTarget.y, playerTarget.z));
 
     if (!hasTarget) {

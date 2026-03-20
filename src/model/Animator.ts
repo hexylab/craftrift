@@ -1,4 +1,4 @@
-export const WALK_AMPLITUDE = 0.5;     // ラジアン
+export const WALK_AMPLITUDE = 0.5; // ラジアン
 export const WALK_SPEED_FACTOR = 8.0;
 const IDLE_AMPLITUDE = 0.02;
 const IDLE_SPEED = 1.5;
@@ -47,10 +47,15 @@ export class AttackAnimator {
   update(dt: number): number {
     if (!this.active) return 0;
     this.timer -= dt;
-    if (this.timer <= 0) { this.active = false; return 0; }
+    if (this.timer <= 0) {
+      this.active = false;
+      return 0;
+    }
     const progress = 1 - this.timer / AttackAnimator.DURATION;
     return -Math.sin(progress * Math.PI) * 1.5;
   }
 
-  get isPlaying(): boolean { return this.active; }
+  get isPlaying(): boolean {
+    return this.active;
+  }
 }

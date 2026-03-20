@@ -27,8 +27,14 @@ export class Projectile {
   private dirY: number;
   private dirZ: number;
 
-  constructor(x: number, y: number, z: number, damage: number, team: Team,
-    target: ProjectileTarget) {
+  constructor(
+    x: number,
+    y: number,
+    z: number,
+    damage: number,
+    team: Team,
+    target: ProjectileTarget,
+  ) {
     this.x = x;
     this.y = y;
     this.z = z;
@@ -86,8 +92,10 @@ export class Projectile {
     const desiredZ = dz / dist;
 
     // 現在方向と目標方向の角度差
-    const dot = Math.max(-1, Math.min(1,
-      this.dirX * desiredX + this.dirY * desiredY + this.dirZ * desiredZ));
+    const dot = Math.max(
+      -1,
+      Math.min(1, this.dirX * desiredX + this.dirY * desiredY + this.dirZ * desiredZ),
+    );
     const angle = Math.acos(dot);
 
     // 旋回制限付きで方向を補間
@@ -95,9 +103,9 @@ export class Projectile {
       const maxTurn = PROJECTILE_TURN_RATE * dt;
       const t = Math.min(1, maxTurn / angle);
       // 線形補間 + 再正規化
-      let newX = this.dirX + (desiredX - this.dirX) * t;
-      let newY = this.dirY + (desiredY - this.dirY) * t;
-      let newZ = this.dirZ + (desiredZ - this.dirZ) * t;
+      const newX = this.dirX + (desiredX - this.dirX) * t;
+      const newY = this.dirY + (desiredY - this.dirY) * t;
+      const newZ = this.dirZ + (desiredZ - this.dirZ) * t;
       const len = Math.sqrt(newX * newX + newY * newY + newZ * newZ);
       if (len > 0) {
         this.dirX = newX / len;

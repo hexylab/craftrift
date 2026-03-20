@@ -36,11 +36,7 @@ export class World {
     const cz = this.toChunkCoord(wz);
     const chunk = this.getChunk(cx, cy, cz);
     if (!chunk) return BlockType.AIR;
-    return chunk.getBlock(
-      this.toLocalCoord(wx),
-      this.toLocalCoord(wy),
-      this.toLocalCoord(wz),
-    );
+    return chunk.getBlock(this.toLocalCoord(wx), this.toLocalCoord(wy), this.toLocalCoord(wz));
   }
 
   setBlock(wx: number, wy: number, wz: number, type: BlockType): void {

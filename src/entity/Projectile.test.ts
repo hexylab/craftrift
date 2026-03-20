@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { Projectile, PROJECTILE_SPEED, PROJECTILE_RADIUS, PROJECTILE_MAX_LIFETIME, PLAYER_HIT_RADIUS, PROJECTILE_TURN_RATE } from './Projectile';
+import {
+  Projectile,
+  PROJECTILE_SPEED,
+  PROJECTILE_RADIUS,
+  PROJECTILE_MAX_LIFETIME,
+  PLAYER_HIT_RADIUS,
+} from './Projectile';
 
 describe('Projectile', () => {
   it('initial state: alive=true, at origin position', () => {
@@ -69,7 +75,6 @@ describe('Projectile', () => {
     const target = { x: 0, y: 0, z: 100, isAlive: true };
     const p = new Projectile(0, 0, 0, 25, 'red', target);
     // 1フレーム(16ms)で旋回可能な最大角度
-    const maxAnglePerFrame = PROJECTILE_TURN_RATE * 0.016;
     target.x = 100;
     target.z = 0;
     p.update(0.016); // ターゲットは90度横

@@ -58,7 +58,12 @@ describe('Block', () => {
   });
 
   it('structure blocks have same texture for all faces', () => {
-    for (const bt of [BlockType.BLUE_TOWER, BlockType.RED_TOWER, BlockType.BLUE_NEXUS, BlockType.RED_NEXUS]) {
+    for (const bt of [
+      BlockType.BLUE_TOWER,
+      BlockType.RED_TOWER,
+      BlockType.BLUE_NEXUS,
+      BlockType.RED_NEXUS,
+    ]) {
       const uvs = getBlockUVs(bt);
       expect(uvs.top).toBe(uvs.side);
       expect(uvs.top).toBe(uvs.bottom);

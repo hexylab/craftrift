@@ -8,8 +8,8 @@ export interface EntityBody {
   x: number;
   y: number;
   z: number;
-  width: number;   // XZ断面は正方形 (width x width)
-  height: number;  // Y軸の高さ
+  width: number; // XZ断面は正方形 (width x width)
+  height: number; // Y軸の高さ
   velocityY: number;
   onGround: boolean;
 }

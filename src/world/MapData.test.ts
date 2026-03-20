@@ -47,11 +47,13 @@ describe('MapData', () => {
 
   it('spawn position is above ground in air', () => {
     expect(SPAWN_POSITION.y).toBeGreaterThan(3);
-    expect(world.getBlock(
-      Math.floor(SPAWN_POSITION.x),
-      Math.floor(SPAWN_POSITION.y),
-      Math.floor(SPAWN_POSITION.z),
-    )).toBe(BlockType.AIR);
+    expect(
+      world.getBlock(
+        Math.floor(SPAWN_POSITION.x),
+        Math.floor(SPAWN_POSITION.y),
+        Math.floor(SPAWN_POSITION.z),
+      ),
+    ).toBe(BlockType.AIR);
   });
 
   it('generates 6 structures', () => {
@@ -59,7 +61,7 @@ describe('MapData', () => {
   });
 
   it('structures are symmetrically placed', () => {
-    const byId = new Map(structures.map(s => [s.id, s]));
+    const byId = new Map(structures.map((s) => [s.id, s]));
 
     const blueNexus = byId.get('blue-nexus')!;
     const redNexus = byId.get('red-nexus')!;
@@ -71,27 +73,27 @@ describe('MapData', () => {
   });
 
   it('red tower blocks are RED_TOWER', () => {
-    const redT1 = structures.find(s => s.id === 'red-t1')!;
+    const redT1 = structures.find((s) => s.id === 'red-t1')!;
     expect(world.getBlock(redT1.x, redT1.y, redT1.z)).toBe(BlockType.RED_TOWER);
   });
 
   it('blue tower blocks are BLUE_TOWER', () => {
-    const blueT1 = structures.find(s => s.id === 'blue-t1')!;
+    const blueT1 = structures.find((s) => s.id === 'blue-t1')!;
     expect(world.getBlock(blueT1.x, blueT1.y, blueT1.z)).toBe(BlockType.BLUE_TOWER);
   });
 
   it('red nexus blocks are RED_NEXUS', () => {
-    const redNexus = structures.find(s => s.id === 'red-nexus')!;
+    const redNexus = structures.find((s) => s.id === 'red-nexus')!;
     expect(world.getBlock(redNexus.x, redNexus.y, redNexus.z)).toBe(BlockType.RED_NEXUS);
   });
 
   it('blue nexus blocks are BLUE_NEXUS', () => {
-    const blueNexus = structures.find(s => s.id === 'blue-nexus')!;
+    const blueNexus = structures.find((s) => s.id === 'blue-nexus')!;
     expect(world.getBlock(blueNexus.x, blueNexus.y, blueNexus.z)).toBe(BlockType.BLUE_NEXUS);
   });
 
   it('protection chain: T1(outer) -> T2(inner) -> Nexus', () => {
-    const byId = new Map(structures.map(s => [s.id, s]));
+    const byId = new Map(structures.map((s) => [s.id, s]));
     const redT1 = byId.get('red-t1')!;
     const redT2 = byId.get('red-t2')!;
     const redNexus = byId.get('red-nexus')!;

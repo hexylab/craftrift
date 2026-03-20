@@ -9,7 +9,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest"
+    "test": "vitest",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/"
   },
   "repository": {
     "type": "git",
@@ -27,13 +31,18 @@
     "three": "^0.183.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/pngjs": "^6.0.5",
     "@types/three": "^0.183.1",
     "@vitest/browser": "^4.1.0",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
     "jsdom": "^29.0.0",
     "pngjs": "^7.0.0",
+    "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.1",
     "vite": "^8.0.0",
     "vitest": "^4.1.0"
   }
