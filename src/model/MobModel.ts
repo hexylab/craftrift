@@ -48,6 +48,11 @@ export function buildModel(def: ModelDefinition, texture: THREE.Texture): THREE.
     applyFaceUVs(geometry, part, def.textureWidth, def.textureHeight);
 
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(
+      part.offset[0] * scale,
+      part.offset[1] * scale,
+      part.offset[2] * scale,
+    );
 
     const pivotGroup = new THREE.Group();
     pivotGroup.name = part.name;
@@ -56,11 +61,14 @@ export function buildModel(def: ModelDefinition, texture: THREE.Texture): THREE.
       part.pivot[1] * scale,
       part.pivot[2] * scale,
     );
-    // anchor='bottom': パーツがピボットから上に伸びる(頭/体) → +h/2
-    // anchor='top'(デフォルト): パーツがピボットから下に垂れる(腕/脚) → -h/2
-    const anchor = part.anchor ?? 'top';
-    const meshOffsetY = anchor === 'bottom' ? h * scale / 2 : -h * scale / 2;
-    mesh.position.set(0, meshOffsetY, 0);
+
+    if (part.initialRotation) {
+      pivotGroup.rotation.set(
+        part.initialRotation[0],
+        part.initialRotation[1],
+        part.initialRotation[2],
+      );
+    }
 
     pivotGroup.add(mesh);
     root.add(pivotGroup);

@@ -23,4 +23,86 @@ describe('SHEEP_MODEL Minecraft compliance', () => {
     expect(SHEEP_MODEL.textureWidth).toBe(64);
     expect(SHEEP_MODEL.textureHeight).toBe(32);
   });
+
+  // MC座標変換の検証: pivot = (mcX, 24-mcY, -mcZ)
+  it('head pivot converts from MC rotationPoint(0,6,-8)', () => {
+    const head = SHEEP_MODEL.parts.find(p => p.name === 'head')!;
+    // threeX=0, threeY=24-6=18, threeZ=-(-8)=8
+    expect(head.pivot).toEqual([0, 18, 8]);
+  });
+
+  it('body pivot converts from MC rotationPoint(0,5,2) with PI/2 rotation', () => {
+    const body = SHEEP_MODEL.parts.find(p => p.name === 'body')!;
+    // threeX=0, threeY=24-5=19, threeZ=-(2)=-2
+    expect(body.pivot).toEqual([0, 19, -2]);
+    expect(body.initialRotation).toBeDefined();
+    expect(body.initialRotation![0]).toBeCloseTo(-Math.PI / 2);
+  });
+
+  it('leg pivots convert from MC rotationPoints correctly', () => {
+    const rfLeg = SHEEP_MODEL.parts.find(p => p.name === 'rightFrontLeg')!;
+    const lfLeg = SHEEP_MODEL.parts.find(p => p.name === 'leftFrontLeg')!;
+    const rbLeg = SHEEP_MODEL.parts.find(p => p.name === 'rightBackLeg')!;
+    const lbLeg = SHEEP_MODEL.parts.find(p => p.name === 'leftBackLeg')!;
+
+    // rightFront: MC(-3,12,-5) → (-3, 12, 5)
+    expect(rfLeg.pivot).toEqual([-3, 12, 5]);
+    // leftFront: MC(3,12,-5) → (3, 12, 5)
+    expect(lfLeg.pivot).toEqual([3, 12, 5]);
+    // rightBack: MC(-3,12,7) → (-3, 12, -7)
+    expect(rbLeg.pivot).toEqual([-3, 12, -7]);
+    // leftBack: MC(3,12,7) → (3, 12, -7)
+    expect(lbLeg.pivot).toEqual([3, 12, -7]);
+  });
+
+  it('head offset converts from MC addBox(-3,-4,-6, 6,6,8)', () => {
+    const head = SHEEP_MODEL.parts.find(p => p.name === 'head')!;
+    // MC center = (0, -1, -2), Three.js offset = (0, 1, 2)
+    expect(head.offset).toEqual([0, 1, 2]);
+  });
+
+  it('body offset converts from MC addBox(-4,-10,-7, 8,16,6)', () => {
+    const body = SHEEP_MODEL.parts.find(p => p.name === 'body')!;
+    // MC center = (0, -2, -4), Three.js offset = (0, 2, 4)
+    expect(body.offset).toEqual([0, 2, 4]);
+  });
+
+  it('leg offsets convert from MC addBox(-2,0,-2, 4,12,4)', () => {
+    const leg = SHEEP_MODEL.parts.find(p => p.name === 'rightFrontLeg')!;
+    // MC center = (0, 6, 0), Three.js offset = (0, -6, 0)
+    expect(leg.offset).toEqual([0, -6, 0]);
+  });
+
+  it('all parts have offset defined', () => {
+    for (const part of SHEEP_MODEL.parts) {
+      expect(part.offset).toBeDefined();
+      expect(part.offset).toHaveLength(3);
+    }
+  });
+});
+
+describe('PLAYER_MODEL offset migration', () => {
+  it('head uses offset=[0,4,0] (was anchor=bottom, h=8)', () => {
+    const head = PLAYER_MODEL.parts.find(p => p.name === 'head')!;
+    expect(head.offset).toEqual([0, 4, 0]);
+  });
+
+  it('body uses offset=[0,6,0] (was anchor=bottom, h=12)', () => {
+    const body = PLAYER_MODEL.parts.find(p => p.name === 'body')!;
+    expect(body.offset).toEqual([0, 6, 0]);
+  });
+
+  it('limbs use offset=[0,-6,0] (was anchor=top/default, h=12)', () => {
+    for (const name of ['rightArm', 'leftArm', 'rightLeg', 'leftLeg']) {
+      const part = PLAYER_MODEL.parts.find(p => p.name === name)!;
+      expect(part.offset).toEqual([0, -6, 0]);
+    }
+  });
+
+  it('all parts have offset defined', () => {
+    for (const part of PLAYER_MODEL.parts) {
+      expect(part.offset).toBeDefined();
+      expect(part.offset).toHaveLength(3);
+    }
+  });
 });
