@@ -4,7 +4,7 @@ export const PROJECTILE_SPEED = 8.0;
 export const PROJECTILE_RADIUS = 0.2;
 export const PROJECTILE_MAX_LIFETIME = 5.0;
 export const PLAYER_HIT_RADIUS = 0.3;
-export const PROJECTILE_TURN_RATE = 3.0; // radians/sec — 旋回速度制限
+export const PROJECTILE_TURN_RATE = 1.5; // radians/sec — 旋回速度制限
 
 export class Projectile {
   x: number;
