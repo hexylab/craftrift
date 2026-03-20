@@ -52,7 +52,7 @@ describe('MinionWaveManager', () => {
 
   it('uses custom model builder when provided', () => {
     const scene = new THREE.Scene();
-    const builder = vi.fn(() => new THREE.Group());
+    const builder = vi.fn(() => ({ mesh: new THREE.Group(), forwardAngle: 0 }));
     const manager = new MinionWaveManager(scene, [], builder);
     manager.update(0.1, [], mockWorld);
     expect(builder).toHaveBeenCalledTimes(6); // 3 blue + 3 red

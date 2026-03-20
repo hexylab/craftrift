@@ -99,7 +99,10 @@ export class Game {
     this.minionWaveManager = new MinionWaveManager(
       this.renderer.scene,
       this.structures,
-      (team) => buildModel(SHEEP_MODEL, team === 'blue' ? sheepBlueTexture : sheepRedTexture),
+      (team) => ({
+        mesh: buildModel(SHEEP_MODEL, team === 'blue' ? sheepBlueTexture : sheepRedTexture),
+        forwardAngle: SHEEP_MODEL.forwardAngle,
+      }),
     );
     this.viewMode = new ViewMode();
 

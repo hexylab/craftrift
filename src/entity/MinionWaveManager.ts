@@ -5,6 +5,8 @@ import { Structure } from './Structure';
 import { Team } from './Entity';
 import { KnockbackState, createKnockbackState } from '../physics/Knockback';
 import { applyGravity, moveWithCollision, tryJump, applyEntityKnockback } from '../physics/EntityPhysics';
+import { WalkAnimator, AttackAnimator } from '../model/Animator';
+import { MINION_MOVE_SPEED } from './Minion';
 
 /** EntityPhysicsが要求するWorldの最小インターフェース */
 export type WorldLike = { getBlock: (x: number, y: number, z: number) => unknown };
@@ -21,6 +23,9 @@ export class MinionWaveManager {
   private ais: Map<string, MinionAI> = new Map();
   private knockbacks: Map<string, KnockbackState> = new Map();
   private meshes: Map<string, THREE.Group> = new Map();
+  private walkAnimators: Map<string, WalkAnimator> = new Map();
+  private attackAnimators: Map<string, AttackAnimator> = new Map();
+  private forwardAngles: Map<string, number> = new Map();
   private waveTimer = WAVE_INTERVAL; // Triggers first wave immediately
   private waveCount = 0;
   private pendingPlayerDamage = 0;
@@ -28,7 +33,7 @@ export class MinionWaveManager {
   constructor(
     private scene: THREE.Scene,
     private structures: Structure[],
-    private buildMinionModel?: (team: Team) => THREE.Group,
+    private buildMinionModel?: (team: Team) => { mesh: THREE.Group; forwardAngle: number },
   ) {}
 
   update(dt: number, structures: Structure[], world: WorldLike, playerInfo?: PlayerInfo): void {
@@ -85,7 +90,8 @@ export class MinionWaveManager {
       if (result.moveX !== 0 || result.moveZ !== 0) {
         const mesh = this.meshes.get(minion.id);
         if (mesh) {
-          mesh.rotation.y = Math.atan2(result.moveX, result.moveZ);
+          const forwardAngle = this.forwardAngles.get(minion.id) ?? 0;
+          mesh.rotation.y = Math.atan2(result.moveX, result.moveZ) + forwardAngle;
         }
       }
 
@@ -107,23 +113,36 @@ export class MinionWaveManager {
       const mesh = this.meshes.get(minion.id);
       if (mesh) {
         mesh.position.set(minion.x, minion.y, minion.z);
-        // 攻撃モーション: 頭を前に突き出す
-        for (const child of mesh.children) {
-          const g = child as THREE.Group;
-          if (g.name === 'head') {
-            const targetAngle = result.state === 'attacking' ?
-              Math.sin(Date.now() * 0.01) * 0.3 : 0; // 攻撃時に頭を振る
-            g.rotation.x = targetAngle;
+
+        const walkAnim = this.walkAnimators.get(minion.id);
+        const attackAnim = this.attackAnimators.get(minion.id);
+        if (walkAnim && attackAnim) {
+          const isMoving = result.moveX !== 0 || result.moveZ !== 0;
+          const angles = walkAnim.update(dt, isMoving, MINION_MOVE_SPEED);
+
+          // WalkAnimatorのリムをヒツジモデルのパーツに対応付ける:
+          // rightArm → rightFrontLeg
+          // leftArm  → leftFrontLeg
+          // rightLeg → rightBackLeg
+          // leftLeg  → leftBackLeg
+          // head     → head
+          for (const child of mesh.children) {
+            const g = child as THREE.Group;
+            switch (g.name) {
+              case 'head':          g.rotation.x = angles.head;     break;
+              case 'rightFrontLeg': g.rotation.x = angles.rightArm; break;
+              case 'leftFrontLeg':  g.rotation.x = angles.leftArm;  break;
+              case 'rightBackLeg':  g.rotation.x = angles.rightLeg; break;
+              case 'leftBackLeg':   g.rotation.x = angles.leftLeg;  break;
+            }
           }
-          // 歩行アニメーション（脚を振る）
-          if (result.state === 'walking' || result.state === 'chasing') {
-            const walkPhase = Date.now() * 0.008 + minion.x * 10; // ミニオンごとに位相をずらす
-            const angle = Math.sin(walkPhase) * 0.4;
-            if (g.name === 'rightFrontLeg' || g.name === 'leftBackLeg') g.rotation.x = angle;
-            else if (g.name === 'leftFrontLeg' || g.name === 'rightBackLeg') g.rotation.x = -angle;
-          } else {
-            // 静止時は脚をリセット
-            if (g.name.includes('Leg')) g.rotation.x = 0;
+
+          // 攻撃アニメーション: 頭にノッドを加算
+          if (result.state === 'attacking') {
+            if (!attackAnim.isPlaying) attackAnim.play();
+            const attackAngle = attackAnim.update(dt);
+            const headGroup = mesh.children.find(c => (c as THREE.Group).name === 'head') as THREE.Group;
+            if (headGroup) headGroup.rotation.x += attackAngle * 0.3;
           }
         }
       }
@@ -174,6 +193,9 @@ export class MinionWaveManager {
       }
       this.ais.delete(m.id);
       this.knockbacks.delete(m.id);
+      this.walkAnimators.delete(m.id);
+      this.attackAnimators.delete(m.id);
+      this.forwardAngles.delete(m.id);
     }
     this.minions = this.minions.filter(m => m.isAlive);
   }
@@ -191,19 +213,24 @@ export class MinionWaveManager {
       // Create mesh (use model builder if provided, else placeholder box)
       let mesh: THREE.Group;
       if (this.buildMinionModel) {
-        mesh = this.buildMinionModel(team);
+        const result = this.buildMinionModel(team);
+        mesh = result.mesh;
+        this.forwardAngles.set(id, result.forwardAngle);
       } else {
         const color = team === 'blue' ? 0x4488ff : 0xff4444;
         const geometry = new THREE.BoxGeometry(0.6, 0.8, 0.6);
         const material = new THREE.MeshLambertMaterial({ color });
         mesh = new THREE.Group();
         mesh.add(new THREE.Mesh(geometry, material));
+        this.forwardAngles.set(id, 0);
       }
       mesh.position.set(minion.x, minion.y, minion.z);
       // チーム方向に向ける: Blue→+Z方向(0), Red→-Z方向(π)
       mesh.rotation.y = team === 'red' ? Math.PI : 0;
       this.scene.add(mesh);
       this.meshes.set(id, mesh);
+      this.walkAnimators.set(id, new WalkAnimator());
+      this.attackAnimators.set(id, new AttackAnimator());
     }
   }
 
