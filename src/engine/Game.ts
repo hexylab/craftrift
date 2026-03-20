@@ -20,6 +20,9 @@ import { MinionWaveManager } from '../entity/MinionWaveManager';
 import { ViewMode } from '../player/ViewMode';
 import { applyKnockback, KNOCKBACK_VERTICAL } from '../physics/Knockback';
 import { Entity } from '../entity/Entity';
+import { buildModel } from '../model/MobModel';
+import { SHEEP_MODEL } from '../model/ModelDefinitions';
+import { WalkAnimator } from '../model/Animator';
 
 const DEBUG_DAMAGE = 100;
 
@@ -78,7 +81,20 @@ export class Game {
     this.screenShake = new ScreenShake();
     // プレイヤーをProjectileTargetとして表すアダプターオブジェクト
     this.playerTarget = { x: 0, y: 0, z: 0, isAlive: true };
-    this.minionWaveManager = new MinionWaveManager(this.renderer.scene, this.structures);
+
+    const textureLoader = new THREE.TextureLoader();
+    const sheepBlueTexture = await textureLoader.loadAsync('/textures/mobs/minion_blue.png');
+    sheepBlueTexture.magFilter = THREE.NearestFilter;
+    sheepBlueTexture.minFilter = THREE.NearestFilter;
+    const sheepRedTexture = await textureLoader.loadAsync('/textures/mobs/minion_red.png');
+    sheepRedTexture.magFilter = THREE.NearestFilter;
+    sheepRedTexture.minFilter = THREE.NearestFilter;
+
+    this.minionWaveManager = new MinionWaveManager(
+      this.renderer.scene,
+      this.structures,
+      (team) => buildModel(SHEEP_MODEL, team === 'blue' ? sheepBlueTexture : sheepRedTexture),
+    );
     this.viewMode = new ViewMode();
 
     this.player = new Player(
