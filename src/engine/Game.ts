@@ -21,8 +21,8 @@ import { ViewMode } from '../player/ViewMode';
 import { applyKnockback, KNOCKBACK_VERTICAL } from '../physics/Knockback';
 import { Entity } from '../entity/Entity';
 import { buildModel } from '../model/MobModel';
-import { SHEEP_MODEL } from '../model/ModelDefinitions';
-import { WalkAnimator } from '../model/Animator';
+import { SHEEP_MODEL, PLAYER_MODEL } from '../model/ModelDefinitions';
+import { WalkAnimator, AttackAnimator } from '../model/Animator';
 
 const DEBUG_DAMAGE = 100;
 
@@ -49,6 +49,10 @@ export class Game {
   private playerTarget!: ProjectileTarget;
   private minionWaveManager!: MinionWaveManager;
   private viewMode!: ViewMode;
+  private playerModel!: THREE.Group;
+  private armModel!: THREE.Group;
+  private playerWalkAnimator!: WalkAnimator;
+  private playerAttackAnimator!: AttackAnimator;
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -96,6 +100,29 @@ export class Game {
       (team) => buildModel(SHEEP_MODEL, team === 'blue' ? sheepBlueTexture : sheepRedTexture),
     );
     this.viewMode = new ViewMode();
+
+    // プレイヤーモデル
+    const playerTexture = await textureLoader.loadAsync('/textures/mobs/player_default.png');
+    playerTexture.magFilter = THREE.NearestFilter;
+    playerTexture.minFilter = THREE.NearestFilter;
+
+    // 三人称用フルボディモデル
+    this.playerModel = buildModel(PLAYER_MODEL, playerTexture);
+    this.playerModel.visible = false; // 一人称では非表示
+    this.renderer.scene.add(this.playerModel);
+
+    // 一人称用アームモデル（右腕のみ表示）
+    this.armModel = buildModel(PLAYER_MODEL, playerTexture);
+    for (const child of this.armModel.children) {
+      if ((child as THREE.Group).name !== 'rightArm') {
+        (child as THREE.Object3D).visible = false;
+      }
+    }
+    this.armModel.position.set(0.4, -0.3, -0.5);
+    this.renderer.fpsCamera.camera.add(this.armModel);
+
+    this.playerWalkAnimator = new WalkAnimator();
+    this.playerAttackAnimator = new AttackAnimator();
 
     this.player = new Player(
       SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z,
@@ -168,6 +195,11 @@ export class Game {
     this.playerTarget.y = this.player.y + PLAYER_HEIGHT / 2;
     this.playerTarget.z = this.player.z;
     this.playerTarget.isAlive = this.playerState.isAlive;
+
+    // プレイヤーモデル位置同期（三人称用）
+    this.playerModel.position.set(this.player.x, this.player.y, this.player.z);
+    const camForwardSync = this.renderer.fpsCamera.getForward();
+    this.playerModel.rotation.y = Math.atan2(camForwardSync.x, camForwardSync.z);
 
     // ミニオンウェーブ更新
     this.minionWaveManager.update(dt, this.structures);
@@ -313,6 +345,31 @@ export class Game {
       this.player.move(moveX / len, moveZ / len, dt);
     }
 
+    // 歩行アニメーション
+    const isMoving = (moveX !== 0 || moveZ !== 0);
+    const walkAngles = this.playerWalkAnimator.update(dt, isMoving, 4.3);
+
+    const applyAngles = (model: THREE.Group, angles: typeof walkAngles) => {
+      for (const child of model.children) {
+        const g = child as THREE.Group;
+        if (g.name === 'rightArm') g.rotation.x = angles.rightArm;
+        else if (g.name === 'leftArm') g.rotation.x = angles.leftArm;
+        else if (g.name === 'rightLeg') g.rotation.x = angles.rightLeg;
+        else if (g.name === 'leftLeg') g.rotation.x = angles.leftLeg;
+        else if (g.name === 'head') g.rotation.x = angles.head;
+      }
+    };
+    applyAngles(this.playerModel, walkAngles);
+
+    // 視点モードに応じたモデル表示切替
+    if (this.viewMode.isFirstPerson) {
+      this.playerModel.visible = false;
+      this.armModel.visible = true;
+    } else {
+      this.playerModel.visible = true;
+      this.armModel.visible = false;
+    }
+
     // カメラ位置更新（視点モードに応じて）
     if (this.viewMode.isFirstPerson) {
       this.renderer.fpsCamera.setPosition(
@@ -359,6 +416,24 @@ export class Game {
         if (this.blockInteraction.breakBlock(blockHit)) {
           this.rebuildDirtyChunks();
         }
+      }
+    }
+
+    // 攻撃アニメーション
+    if (leftClick) {
+      this.playerAttackAnimator.play();
+    }
+    const attackAngle = this.playerAttackAnimator.update(dt);
+    // 攻撃アニメーションを右腕に適用（一人称アーム）
+    for (const child of this.armModel.children) {
+      if ((child as THREE.Group).name === 'rightArm') {
+        (child as THREE.Group).rotation.x = walkAngles.rightArm + attackAngle;
+      }
+    }
+    // 攻撃アニメーションを三人称モデルの右腕にも適用
+    for (const child of this.playerModel.children) {
+      if ((child as THREE.Group).name === 'rightArm') {
+        (child as THREE.Group).rotation.x = walkAngles.rightArm + attackAngle;
       }
     }
 
