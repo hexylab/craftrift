@@ -7,8 +7,8 @@ import { KnockbackState, createKnockbackState, updateKnockback, hasKnockback } f
 
 export const WAVE_INTERVAL = 30.0;
 export const WAVE_SIZE = 3;
-export const BLUE_SPAWN_Z = 10;
-export const RED_SPAWN_Z = 200;
+export const BLUE_SPAWN_Z = 12; // Blue Nexus(Z=6, depth=5)の外側
+export const RED_SPAWN_Z = 197; // Red Nexus(Z=198, depth=5)の外側
 export const SPAWN_X = 9.0;
 const SPAWN_Y = 4; // GRASS_Y(3) + 1 = 地面の上
 

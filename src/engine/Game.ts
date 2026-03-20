@@ -315,18 +315,9 @@ export class Game {
     // === 入力処理（Pointer Lock + 生存中のみ） ===
 
     if (!this.input.isPointerLocked || !this.playerState.isAlive) {
-      // シェイクとカメラ同期は実行
-      this.renderer.fpsCamera.setPosition(
-        this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-      );
+      // シェイクとカメラ同期（viewMode対応）
       const shake = this.screenShake.update(dt);
-      if (shake.offsetX !== 0 || shake.offsetY !== 0) {
-        this.renderer.fpsCamera.setPosition(
-          this.player.eyeX + shake.offsetX,
-          this.player.eyeY + shake.offsetY,
-          this.player.eyeZ,
-        );
-      }
+      this.updateCameraPosition(shake.offsetX, shake.offsetY);
       return;
     }
 
@@ -384,19 +375,7 @@ export class Game {
     }
 
     // カメラ位置更新（視点モードに応じて）
-    if (this.viewMode.isFirstPerson) {
-      this.renderer.fpsCamera.setPosition(
-        this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-      );
-    } else {
-      const camForward = this.renderer.fpsCamera.getForward();
-      const offset = this.viewMode.getCameraOffset(camForward.x, camForward.y, camForward.z);
-      this.renderer.fpsCamera.setPosition(
-        this.player.eyeX + offset.x,
-        this.player.eyeY + offset.y,
-        this.player.eyeZ + offset.z,
-      );
-    }
+    this.updateCameraPosition();
 
     // レイキャスト・戦闘
     const dir = this.renderer.fpsCamera.getDirection();
@@ -485,13 +464,28 @@ export class Game {
       }
     }
 
-    // 画面シェイク適用（フレーム最後）
+    // 画面シェイク適用（フレーム最後、viewMode対応）
     const shake = this.screenShake.update(dt);
     if (shake.offsetX !== 0 || shake.offsetY !== 0) {
+      this.updateCameraPosition(shake.offsetX, shake.offsetY);
+    }
+  }
+
+  /** 現在のviewModeに応じたカメラ位置を設定する */
+  private updateCameraPosition(shakeX = 0, shakeY = 0): void {
+    if (this.viewMode.isFirstPerson) {
       this.renderer.fpsCamera.setPosition(
-        this.player.eyeX + shake.offsetX,
-        this.player.eyeY + shake.offsetY,
+        this.player.eyeX + shakeX,
+        this.player.eyeY + shakeY,
         this.player.eyeZ,
+      );
+    } else {
+      const camForward = this.renderer.fpsCamera.getForward();
+      const offset = this.viewMode.getCameraOffset(camForward.x, camForward.y, camForward.z);
+      this.renderer.fpsCamera.setPosition(
+        this.player.eyeX + offset.x + shakeX,
+        this.player.eyeY + offset.y + shakeY,
+        this.player.eyeZ + offset.z,
       );
     }
   }
