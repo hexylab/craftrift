@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Minion, MINION_ATTACK_RANGE, MINION_MOVE_SPEED, MINION_ATTACK_INTERVAL, MINION_DAMAGE } from './Minion';
-import { MinionAI, LANE_CENTER_X } from './MinionAI';
+import { MinionAI, LANE_CENTER_X, DETECTION_RANGE, LEASH_RANGE } from './MinionAI';
 import { Structure } from './Structure';
 import { BlockType } from '../world/Block';
 
@@ -19,7 +19,10 @@ function makeTower(
   return new Structure(id, team, x, y, z, 'tower', 1500, 3, 6, 3, BlockType.RED_TOWER, protectedBy);
 }
 
-describe('MinionAI', () => {
+describe('MinionAI State Machine', () => {
+  // =========================================
+  // Walking behavior
+  // =========================================
   describe('Walking behavior', () => {
     it('blue minion walks toward red side (Z increase)', () => {
       const minion = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
@@ -49,76 +52,137 @@ describe('MinionAI', () => {
     });
   });
 
+  // =========================================
+  // Walking → Chasing transition
+  // =========================================
+  describe('Walking → Chasing transition', () => {
+    it('transitions to chasing when enemy minion enters DETECTION_RANGE', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      // 敵をDETECTION_RANGE内に配置
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
+      const ai = new MinionAI(blue);
+      const result = ai.update(0.1, [blue, red], []);
+      expect(result.state).toBe('chasing');
+      expect(result.targetId).toBe('red-1');
+    });
+
+    it('does not chase enemy outside DETECTION_RANGE', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      // 敵をDETECTION_RANGEの外に配置
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE + 1);
+      const ai = new MinionAI(blue);
+      const result = ai.update(0.1, [blue, red], []);
+      expect(result.state).toBe('walking');
+    });
+  });
+
+  // =========================================
+  // Chasing → Attacking transition
+  // =========================================
+  describe('Chasing → Attacking transition', () => {
+    it('transitions to attacking when within ATTACK_RANGE', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      // 敵をDETECTION_RANGE内で配置してまず追跡状態にする
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
+      const ai = new MinionAI(blue);
+      // 初回: chasing状態へ
+      ai.update(0.1, [blue, red], []);
+      // 敵を攻撃範囲内に移動
+      red.z = 50 + MINION_ATTACK_RANGE - 0.1;
+      const result = ai.update(0.1, [blue, red], []);
+      expect(result.state).toBe('attacking');
+      expect(result.targetId).toBe('red-1');
+    });
+  });
+
+  // =========================================
+  // Attacking behavior
+  // =========================================
   describe('Attacking behavior', () => {
-    it('attacks enemy minion in range', () => {
+    it('deals damage when attack timer elapses', () => {
       const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
       const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + MINION_ATTACK_RANGE - 0.1);
       const ai = new MinionAI(blue);
+      // 最初にchasing → attacking
+      ai.update(0.1, [blue, red], []);
+      // attackTimerを十分進めるためにATTACK_INTERVAL分のdtを渡す
       const result = ai.update(MINION_ATTACK_INTERVAL, [blue, red], []);
       expect(result.state).toBe('attacking');
-      expect(result.targetId).toBe('red-1');
       expect(result.damage).toBe(MINION_DAMAGE);
     });
 
-    it('does not attack ally minion', () => {
-      const blue1 = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
-      const blue2 = makeMinion('blue-2', 'blue', LANE_CENTER_X, 0, 51);
-      const ai = new MinionAI(blue1);
-      const result = ai.update(MINION_ATTACK_INTERVAL, [blue1, blue2], []);
-      expect(result.state).toBe('walking');
-      expect(result.targetId).toBeNull();
-    });
-
-    it('does not attack enemy minion out of range', () => {
-      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
-      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + MINION_ATTACK_RANGE + 1);
-      const ai = new MinionAI(blue);
-      const result = ai.update(MINION_ATTACK_INTERVAL, [blue, red], []);
-      expect(result.state).toBe('walking');
-      expect(result.targetId).toBeNull();
-    });
-
-    it('does not deal damage if attack timer has not elapsed', () => {
+    it('does not deal damage before timer elapses', () => {
       const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
       const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + MINION_ATTACK_RANGE - 0.1);
       const ai = new MinionAI(blue);
-      const result = ai.update(MINION_ATTACK_INTERVAL * 0.5, [blue, red], []);
+      // 攻撃状態に遷移
+      ai.update(0.1, [blue, red], []);
+      // タイマー不足
+      const result = ai.update(MINION_ATTACK_INTERVAL * 0.3, [blue, red], []);
       expect(result.state).toBe('attacking');
-      expect(result.targetId).toBe('red-1');
       expect(result.damage).toBe(0);
     });
-  });
 
-  describe('Target priority', () => {
-    it('prioritizes enemy minion attacking self over nearest enemy', () => {
+    it('stops moving while attacking', () => {
       const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
-      const redAttacker = makeMinion('red-attacker', 'red', LANE_CENTER_X, 0, 50 + MINION_ATTACK_RANGE - 0.5);
-      const redNear = makeMinion('red-near', 'red', LANE_CENTER_X, 0, 50 + 0.5);
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + MINION_ATTACK_RANGE - 0.1);
       const ai = new MinionAI(blue);
-      const result = ai.update(MINION_ATTACK_INTERVAL, [blue, redNear, redAttacker], [], 'red-attacker');
-      expect(result.targetId).toBe('red-attacker');
-    });
-
-    it('falls back to closest enemy minion when attacker not in range', () => {
-      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
-      const redAttacker = makeMinion('red-attacker', 'red', LANE_CENTER_X, 0, 50 + MINION_ATTACK_RANGE + 2);
-      const redNear = makeMinion('red-near', 'red', LANE_CENTER_X, 0, 50 + 0.5);
-      const ai = new MinionAI(blue);
-      const result = ai.update(MINION_ATTACK_INTERVAL, [blue, redNear, redAttacker], [], 'red-attacker');
-      expect(result.targetId).toBe('red-near');
+      ai.update(0.1, [blue, red], []);
+      const result = ai.update(MINION_ATTACK_INTERVAL, [blue, red], []);
+      expect(result.moveX).toBe(0);
+      expect(result.moveZ).toBe(0);
     });
   });
 
-  describe('Structure targeting', () => {
-    it('attacks enemy structure when in range', () => {
+  // =========================================
+  // Attacking/Chasing → Walking transition
+  // =========================================
+  describe('Attacking/Chasing → Walking transition', () => {
+    it('returns to walking when target dies', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + MINION_ATTACK_RANGE - 0.1);
+      const ai = new MinionAI(blue);
+      // chasing → attacking
+      ai.update(0.1, [blue, red], []);
+      ai.update(0.1, [blue, red], []);
+      expect(ai.update(0.1, [blue, red], []).state).toBe('attacking');
+      // ターゲット死亡
+      red.takeDamage(10000);
+      expect(red.isAlive).toBe(false);
+      const result = ai.update(0.1, [blue, red], []);
+      expect(result.state).toBe('walking');
+    });
+
+    it('returns to walking when target exceeds LEASH_RANGE', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
+      const ai = new MinionAI(blue);
+      // chasing状態にする
+      const r1 = ai.update(0.1, [blue, red], []);
+      expect(r1.state).toBe('chasing');
+      // ターゲットをLEASH_RANGEの外へ移動
+      red.z = 50 + LEASH_RANGE + 1;
+      const result = ai.update(0.1, [blue, red], []);
+      expect(result.state).toBe('walking');
+    });
+  });
+
+  // =========================================
+  // Structure targeting in walking mode
+  // =========================================
+  describe('Structure targeting in walking mode', () => {
+    it('attacks enemy structure when in range during walking', () => {
       // タワー at (8, 4, 135) size 3x6x3 → center (9.5, 7, 136.5)
-      // ミニオンをタワーのすぐ横に配置（Y=7でタワー中心と同じ高さ）
       const blue = makeMinion('blue-1', 'blue', 9.5, 7, 136.5);
       const redTower = makeTower('red-t1', 'red', 8, 4, 135);
       const ai = new MinionAI(blue);
       const result = ai.update(MINION_ATTACK_INTERVAL, [blue], [redTower]);
-      expect(result.state).toBe('attacking');
+      // walking状態のまま構造物を攻撃する
+      expect(result.state).toBe('walking');
       expect(result.targetId).toBe('red-t1');
+      expect(result.damage).toBe(MINION_DAMAGE);
+      expect(result.moveX).toBe(0);
+      expect(result.moveZ).toBe(0);
     });
 
     it('does not attack protected structure', () => {
@@ -139,8 +203,37 @@ describe('MinionAI', () => {
     });
   });
 
+  // =========================================
+  // Target priority
+  // =========================================
+  describe('Target priority', () => {
+    it('prioritizes enemy attacking self over nearest', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      // attackerは少し遠いがDETECTION_RANGE内
+      const redAttacker = makeMinion('red-attacker', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
+      // nearはもっと近い
+      const redNear = makeMinion('red-near', 'red', LANE_CENTER_X, 0, 50 + 2);
+      const ai = new MinionAI(blue);
+      const result = ai.update(0.1, [blue, redNear, redAttacker], [], 'red-attacker');
+      expect(result.targetId).toBe('red-attacker');
+    });
+
+    it('prioritizes enemy minion over player', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
+      const enemyPlayer = { x: LANE_CENTER_X, y: 0, z: 50 + 1, isAlive: true };
+      const ai = new MinionAI(blue);
+      const result = ai.update(0.1, [blue, red], [], undefined, enemyPlayer);
+      // ミニオンがプレイヤーより優先される
+      expect(result.targetId).toBe('red-1');
+    });
+  });
+
+  // =========================================
+  // Dead minion
+  // =========================================
   describe('Dead minion', () => {
-    it('returns idle result when minion is dead', () => {
+    it('returns idle when dead', () => {
       const blue = makeMinion('blue-1', 'blue');
       blue.takeDamage(10000);
       expect(blue.isAlive).toBe(false);
@@ -153,7 +246,10 @@ describe('MinionAI', () => {
     });
   });
 
-  describe('A* pathfinding', () => {
+  // =========================================
+  // Pathfinding
+  // =========================================
+  describe('Pathfinding', () => {
     it('routes around obstacle to continue advancing', () => {
       // ミニオンの目の前にタワーがある場合、迂回して進む
       const blue = makeMinion('blue-1', 'blue', 9, 0, 68);
@@ -171,6 +267,39 @@ describe('MinionAI', () => {
       expect(totalMoveZ).toBeGreaterThan(0);
       // タワーを迂回して通過しているはず
       expect(blue.z).toBeGreaterThan(71);
+    });
+  });
+
+  // =========================================
+  // State output
+  // =========================================
+  describe('State output', () => {
+    it('result.state matches current AI state', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      const ai = new MinionAI(blue);
+      // walking
+      const r1 = ai.update(0.1, [], []);
+      expect(r1.state).toBe('walking');
+      // chasing
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
+      const r2 = ai.update(0.1, [blue, red], []);
+      expect(r2.state).toBe('chasing');
+      // attacking
+      red.z = 50 + MINION_ATTACK_RANGE - 0.1;
+      const r3 = ai.update(0.1, [blue, red], []);
+      expect(r3.state).toBe('attacking');
+    });
+
+    it('shouldJump is always false (handled externally)', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      const ai = new MinionAI(blue);
+      const result = ai.update(0.1, [], []);
+      expect(result.shouldJump).toBe(false);
+
+      // chasing状態でも
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
+      const r2 = ai.update(0.1, [blue, red], []);
+      expect(r2.shouldJump).toBe(false);
     });
   });
 });

@@ -105,7 +105,7 @@ export class MinionWaveManager {
             g.rotation.x = targetAngle;
           }
           // 歩行アニメーション（脚を振る）
-          if (result.state === 'walking' || result.state === 'returning') {
+          if (result.state === 'walking' || result.state === 'chasing') {
             const walkPhase = Date.now() * 0.008 + minion.x * 10; // ミニオンごとに位相をずらす
             const angle = Math.sin(walkPhase) * 0.4;
             if (g.name === 'rightFrontLeg' || g.name === 'leftBackLeg') g.rotation.x = angle;
