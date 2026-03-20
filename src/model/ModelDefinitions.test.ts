@@ -63,8 +63,8 @@ describe('SHEEP_MODEL Minecraft compliance', () => {
 
   it('body offset converts from MC addBox(-4,-10,-7, 8,16,6) with -PI/2 X rotation', () => {
     const body = SHEEP_MODEL.parts.find(p => p.name === 'body')!;
-    // Adjusted for visual alignment: localY+6 (world Z back), localZ+2 (world Y up)
-    expect(body.offset).toEqual([0, 10, 0]);
+    // From base (0,4,-2): 2px down (localZ-2), 6px forward (localY-6) → (0,-2,-4)
+    expect(body.offset).toEqual([0, -2, -4]);
   });
 
   it('leg offsets convert from MC addBox(-2,0,-2, 4,12,4)', () => {
@@ -84,13 +84,13 @@ describe('SHEEP_MODEL Minecraft compliance', () => {
 describe('PLAYER_MODEL offset migration', () => {
   it('head pivot and offset', () => {
     const head = PLAYER_MODEL.parts.find(p => p.name === 'head')!;
-    expect(head.pivot).toEqual([0, 26, 0]);
+    expect(head.pivot).toEqual([0, 24, 0]);
     expect(head.offset).toEqual([0, 4, 0]);
   });
 
   it('body pivot and offset', () => {
     const body = PLAYER_MODEL.parts.find(p => p.name === 'body')!;
-    expect(body.pivot).toEqual([0, 14, 0]);
+    expect(body.pivot).toEqual([0, 12, 0]);
     expect(body.offset).toEqual([0, 6, 0]);
   });
 
