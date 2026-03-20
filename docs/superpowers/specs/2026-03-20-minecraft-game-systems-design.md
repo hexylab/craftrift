@@ -49,10 +49,43 @@ CraftRiftのゲームシステムを、LoL ARAMの再現からMinecraft要素を
 
 ミニオンのグレード（ウェーブ番号によるスケーリング）が上がると、ドロップ個数が増加する。
 
-### 1.6 設計上のポイント
+### 1.6 素材取得方式
+
+素材はドロップ時に**即座にインベントリに加算**される（ワールドにアイテムエンティティを生成しない）。HUD上に「木×3 獲得」のようなポップアップ通知を表示する。将来的にアイテムドロップエンティティに拡張する可能性はあるが、初期実装ではスコープ外。
+
+### 1.7 ラストヒット判定の実装方針
+
+既存コードではミニオンの死亡時に「誰がキルしたか」の情報が保持されていない。これを解決するため、`Minion` クラスに `lastDamagedBy: DamageSource` フィールドを追加する。
+
+```typescript
+type DamageSource = 'player' | 'tower' | 'blue-minion' | 'red-minion';
+```
+
+`Entity.takeDamage()` を `takeDamage(amount: number, source: DamageSource)` に拡張し、ダメージソースを記録する。ミニオン死亡時に `lastDamagedBy === 'player'` であればラストヒットドロップを付与。
+
+### 1.8 近接ドロップのイベント伝播
+
+`MinionWaveManager` にキルイベントキューを追加する。既存の `consumePlayerDamage()` パターンに倣い、`consumeKillEvents(): KillEvent[]` メソッドを実装。
+
+```typescript
+interface KillEvent {
+  killedMinion: { x: number; z: number; team: Team };
+  killedBy: DamageSource;
+  waveNumber: number;
+}
+```
+
+`Game.ts` のメインループで毎フレーム `consumeKillEvents()` を呼び出し、DropSystemにキルイベントを渡す。DropSystemはプレイヤー位置との距離判定を行い、近接ドロップを付与する。
+
+### 1.9 ゲーム経過時間
+
+`Game.ts` に `gameElapsedTime: number` フィールドを追加し、毎フレーム `dt` を加算する。DropTableはこの値（秒単位）を受け取って確率テーブルを算出する。
+
+### 1.10 設計上のポイント
 
 - `MaterialType` 列挙型（Wood, Stone, Iron, Diamond）を新設
 - `DropTable` クラス: ゲーム経過時間を受け取り確率テーブルを返す
+- `DropSystem` クラス: KillEventを受け取り、ドロップ判定＋インベントリ加算を行う
 - ドロップ個数・確率・距離などすべてパラメータ定数として定義
 - 敵プレイヤーキル＆アシスト判定は将来Issue（マルチプレイヤー時）
 
@@ -94,11 +127,19 @@ CraftRiftのゲームシステムを、LoL ARAMの再現からMinecraft要素を
 
 ### 2.4 クラフトゾーン
 
-- ネクサス後方の本陣に**クラフトブロック**を床面に配置（新BlockType）
+- ネクサス後方の本陣に**クラフトブロック**（`CRAFTING_BLOCK`）を床面に配置
 - プレイヤーがクラフトブロックの上に立っている時のみEキーでクラフトUI表示
 - クラフトUI: 武器4種＋ブロック1種の強化メニュー
 - 各項目: 現在グレード → 次グレード、必要素材、所持素材数、クラフトボタン
 - 素材が足りない項目はグレーアウト
+
+#### クラフトゾーンの具体的な配置
+
+既存マップ座標を基準に配置する。
+
+- **Blue側**: Blue Nexus は `(7, 4, 6)` に `5x4x5` で配置。クラフトゾーンはネクサス後方 Z=2〜5、X=4〜14（レーン幅内）、Y=GRASS_Y の地面にクラフトブロックを敷く
+- **Red側**: Red Nexus は `(7, 4, 198)` に `5x4x5` で配置。クラフトゾーンはネクサス後方 Z=204〜207、X=4〜14
+- 具体的な座標は `MapData.ts` に `CRAFT_ZONE_BLUE` / `CRAFT_ZONE_RED` 定数として定義
 
 ### 2.5 クラフトUI動作
 
@@ -146,18 +187,82 @@ CraftRiftのゲームシステムを、LoL ARAMの再現からMinecraft要素を
 - **マウスホイール**: クラフト済み（＋素手）の武器間のみをスキップ切り替え
 - HUDにホットバー表示（5枠固定、未クラフトはグレーアウト、選択中はハイライト）
 
-### 3.4 ブロック破壊との関係
+### 3.4 左クリック時のアクション解決順序
 
-- 武器種・素材グレードによる破壊速度の差はなし
-- 攻撃クールダウンと共有（ブロック殴り中は敵を攻撃できない）
+左クリックは攻撃とブロック破壊を兼ねるため、以下の優先順序で処理する:
 
-### 3.5 設計上のポイント
+1. **敵エンティティ判定**: 武器種に応じた判定方式で敵（構造物 > ミニオン > プレイヤー）を検索
+2. **敵がいればダメージのみ**: エンティティにヒットした場合、ブロック破壊は行わない
+3. **敵がいなければブロック破壊**: レイキャスト先のブロック1つを殴る（耐久値-1）
+
+剣の扇形攻撃であっても、範囲内に1体でも敵がいればブロックは破壊しない。敵がゼロの場合のみ、レイキャスト方向のブロック1つを対象に耐久値を減らす。
+
+### 3.5 クールダウン設計
+
+- 各武器種に固有のクールダウン値をパラメータで定義する
+- クールダウンは**攻撃とブロック破壊で共有**（1つのグローバルタイマー）
+- 攻撃速度倍率はクールダウンを短縮する形で適用: `実効CD = ベースCD / 攻撃速度倍率`
+
+| 武器 | ベースクールダウン |
+|------|-------------------|
+| 素手 | 0.5秒 |
+| 剣 | 0.6秒 |
+| 斧 | 0.8秒 |
+| 槍 | 0.7秒 |
+| 弓 | 1.0秒 |
+
+すべてパラメータ。
+
+### 3.6 CombatSystemの新設計
+
+既存の `CombatSystem` は Structure のみを対象としているが、新システムではすべての攻撃対象を統一的に扱う `WeaponCombatSystem` に置き換える。
+
+```typescript
+interface AttackTarget {
+  type: 'structure' | 'minion' | 'player';
+  entity: Entity;
+  distance: number;
+}
+
+class WeaponCombatSystem {
+  // 武器種に応じた判定を実行し、ヒットした全対象を返す
+  tryAttack(
+    weapon: WeaponType,
+    grade: MaterialGrade,
+    eyePos: Vec3,
+    lookDir: Vec3,
+    targets: AttackTarget[],
+    time: number
+  ): WeaponAttackResult;
+}
+```
+
+判定方式の分岐:
+- **素手/斧**: 既存の `rayIntersectsAABB` を流用。レイ上の最近接ターゲット1体
+- **剣**: 扇形範囲内のすべてのターゲット。`eyePos` からターゲットへのベクトルと `lookDir` の角度が扇形角度/2以内、かつ射程内
+- **槍**: レイ上のすべてのターゲット（貫通）。既存レイキャストを拡張し、最初のヒットで止めずに射程内の全交差を返す
+- **弓**: `ArrowProjectile` を生成（後述）。即時判定ではない
+
+既存の `CombatSystem` の構造物攻撃ロジック（保護チェーン判定等）は `WeaponCombatSystem` に統合する。
+
+### 3.7 弓の投射物（ArrowProjectile）
+
+既存の `Projectile`（ホーミング弾）とは設計が根本的に異なるため、`ArrowProjectile` を新クラスとして実装する。
+
+- **発射**: カメラの向き（lookDir）に初速を与える
+- **弾道**: 物理ベースの放物線（低重力パラメータ、例: 通常重力の0.3倍）
+- **衝突判定**: ブロック衝突で消滅、敵エンティティ衝突でダメージ＋消滅（**貫通しない**）
+- **寿命**: 最大飛行時間パラメータ（例: 3秒）で自動消滅
+- `ArrowProjectileManager` で管理（既存 `ProjectileManager` と並行）
+
+### 3.8 設計上のポイント
 
 - `WeaponType` 列挙型（Fist, Sword, Axe, Spear, Bow）
-- `WeaponStats` 定義: 武器種×グレードの組み合わせでダメージ・射程・クールダウンを算出
-- 攻撃判定は `CombatSystem` を拡張: 武器種に応じた判定方式を分岐
-- 弓は既存 `Projectile`/`ProjectileManager` を拡張して重力付き矢を追加
-- 倍率テーブルはパラメータ定数として外出し
+- `MaterialGrade` 列挙型（None, Wood, Stone, Iron, Diamond）
+- `WeaponCombatSystem`: 統一攻撃判定（旧CombatSystemを置換）
+- `ArrowProjectile` / `ArrowProjectileManager`: 弓専用の投射物システム
+- 倍率テーブル・クールダウン・射程はすべてパラメータ定数として `GameBalance.ts` に外出し
+- `InputManager` にマウスホイール（`wheel` イベント）ハンドリングを追加
 
 ---
 
@@ -189,17 +294,47 @@ CraftRiftのゲームシステムを、LoL ARAMの再現からMinecraft要素を
 - 耐久値0で破壊
 - ヒビ/ダメージ表現: Minecraft式にブロック表面にクラック段階を表示（3段階程度）
 
+#### 耐久度データの格納方式
+
+マップ全ブロックに耐久度を適用するため、`Chunk` にブロックメタデータ用の追加配列 `blockHP: Uint8Array` を持たせる（`blocks` 配列と同じサイズ）。
+
+- `blockHP[index] = 0`: 耐久値なし（AIR or 破壊不可ブロック）
+- `blockHP[index] = N`: 残り耐久値N
+- ブロック設置時に `BlockType` に応じた初期耐久値をセット
+- マップ生成時にもランダム配置ブロックの耐久値を初期化
+
+プレイヤー設置ブロックは別途 `Map<string, PlacedBlock>` で管理し、設置者ID・設置枠のカウントに使用する。
+
+```typescript
+interface PlacedBlock {
+  x: number; y: number; z: number;
+  placedBy: string; // プレイヤーID（マルチ対応用、シングルでは固定値）
+}
+```
+
 ### 4.4 マップブロック構成
 
 既存マップブロックも新耐久度システムに統合する。
 
 | 場所 | ブロック | 破壊 |
 |------|---------|------|
-| 壁 | 黒曜石（新BlockType） | 不可 |
-| 地表〜地下1ブロック（2層分） | 土・石・鉄・ダイヤをランダム配置 | 可（耐久度に従う） |
-| 地下2ブロック目（3層目） | 黒曜石 | 不可 |
-| 基盤（最下層） | 基盤 | 不可 |
-| 構造物（タワー・ネクサス） | 既存のまま | 不可（CombatSystem経由で攻撃） |
+| 壁（内壁・端壁） | 黒曜石（`OBSIDIAN`、新BlockType） | 不可 |
+| 地表〜地下1ブロック（Y=GRASS_Y, Y=GRASS_Y-1 の2層） | 土・石・鉄・ダイヤをランダム配置 | 可（耐久度に従う） |
+| 地下2ブロック目（Y=GRASS_Y-2） | 黒曜石 | 不可 |
+| 最下層（Y=0） | 基盤（`BEDROCK`） | 不可 |
+| 構造物（タワー・ネクサス） | 既存のまま（`BLUE_TOWER`等） | 不可（WeaponCombatSystem経由で攻撃） |
+| クラフトゾーン | クラフトブロック（`CRAFTING_BLOCK`、新BlockType） | 不可 |
+
+#### 既存マップからの変更対応表
+
+| 既存ブロック | 配置場所 | 変更後 |
+|-------------|---------|--------|
+| `BEDROCK`（外壁 Z=0, Z=MAP_LENGTH-1） | 最外壁 | `BEDROCK` のまま（変更なし） |
+| `STONE`（内壁 isInnerWallX） | レーン側壁 | `OBSIDIAN` に変更 |
+| `STONE`（端壁 Z=1, Z=MAP_LENGTH-2） | レーン端壁 | `OBSIDIAN` に変更 |
+| `GRASS`（地表 Y=GRASS_Y） | 地面表層 | ランダム配置（土/石/鉄/ダイヤ） |
+| `DIRT`（Y=GRASS_Y-1） | 地下1層目 | ランダム配置（土/石/鉄/ダイヤ） |
+| `DIRT`（Y=GRASS_Y-2 以下） | 地下深層 | `OBSIDIAN`（底抜け防止） |
 
 ### 4.5 地面ランダム配置の比率
 
@@ -210,6 +345,45 @@ CraftRiftのゲームシステムを、LoL ARAMの再現からMinecraft要素を
 ```
 
 比率はパラメータで調整可能。
+
+### 4.6 新BlockType一覧
+
+既存の `BlockType` enum を以下のように拡張する。
+
+| BlockType | 値 | isSolid | isDestructible | 耐久値 | テクスチャ |
+|-----------|---|---------|---------------|--------|-----------|
+| AIR | 0 | false | - | - | なし |
+| GRASS | 1 | true | true | 1（=土扱い） | 既存grass |
+| DIRT | 2 | true | true | 1 | 既存dirt |
+| STONE | 3 | true | true | 6 | 既存stone |
+| BEDROCK | 4 | true | false | - | 既存bedrock |
+| BLUE_TOWER | 5 | true | false | - | 既存blue_tower |
+| RED_TOWER | 6 | true | false | - | 既存red_tower |
+| BLUE_NEXUS | 7 | true | false | - | 既存blue_nexus |
+| RED_NEXUS | 8 | true | false | - | 既存red_nexus |
+| OBSIDIAN | 9 | true | false | - | 新規（黒紫テクスチャ） |
+| WOOD_PLANK | 10 | true | true | 3 | 新規（木板テクスチャ） |
+| IRON_BLOCK | 11 | true | true | 10 | 新規（鉄テクスチャ） |
+| DIAMOND_BLOCK | 12 | true | true | 15 | 新規（ダイヤテクスチャ） |
+| CRAFTING_BLOCK | 13 | true | false | - | 新規（作業台テクスチャ） |
+
+テクスチャアトラスを9枚→14枚に拡張。新テクスチャ5枚（obsidian, wood_plank, iron_block, diamond_block, crafting_block）を追加。`ATLAS_SIZE` と `BLOCK_UVS` を対応して更新する。
+
+### 4.7 土ブロック（デフォルト）の設置ルール
+
+- プレイヤーは**ゲーム開始時から土ブロックを設置可能**
+- 土ブロックの設置に素材は消費しない（設置上限のみが制約）
+- クラフトでブロックグレードを上げると、設置されるブロックが木→石→鉄→ダイヤに変わる
+- 下位グレードには戻せない（常に最新グレード）
+
+### 4.8 ミニオンとプレイヤー設置ブロックの相互作用
+
+プレイヤーがブロックを設置してミニオンの進路を塞いだ場合のルール:
+
+- **1ブロック高**: 既存のオートジャンプ機能で乗り越える（既存実装を維持）
+- **2ブロック以上**: ミニオンはブロックを攻撃して耐久度を減らす（ミニオンの攻撃力でブロック耐久値-1、攻撃間隔は `MINION_ATTACK_INTERVAL` を共有）
+- **パスファインディング**: 既存の `Pathfinding.ts` の `buildObstacleMap` を拡張し、ワールドブロック（地表+1以上の固体ブロック）も障害物として考慮する。ただし耐久値1のブロックはコスト増、耐久値が高いブロックほどコストが高くなる重み付きパスファインディングに拡張
+- **スタック防止**: ミニオンが同じ位置にN秒（パラメータ、例: 5秒）滞留した場合、対面するブロックを自動的に即時破壊する（フェイルセーフ）
 
 ---
 
