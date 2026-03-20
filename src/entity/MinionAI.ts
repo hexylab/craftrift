@@ -1,6 +1,7 @@
 import { Minion, MINION_ATTACK_RANGE, MINION_MOVE_SPEED, MINION_DAMAGE } from './Minion';
 import { Structure } from './Structure';
 import { Entity } from './Entity';
+import { findPath, buildObstacleMap } from '../physics/Pathfinding';
 
 /** プレイヤー位置情報（MinionAIが攻撃判定に使う） */
 export interface PlayerInfo {
@@ -11,7 +12,7 @@ export interface PlayerInfo {
 }
 
 export const LANE_CENTER_X = 9.0;
-export type MinionAIState = 'walking' | 'attacking' | 'returning';
+export type MinionAIState = 'walking' | 'attacking';
 
 export interface MinionAIResult {
   state: MinionAIState;
@@ -21,8 +22,18 @@ export interface MinionAIResult {
   damage: number;
 }
 
+/** パス再計算の間隔（秒） */
+const PATH_RECALC_INTERVAL = 2.0;
+/** ウェイポイント到達判定距離 */
+const WAYPOINT_REACH_DIST = 0.8;
+/** 敵を追跡する距離（この範囲内なら敵に向かって直接移動） */
+const CHASE_RANGE = 8.0;
+
 export class MinionAI {
   private state: MinionAIState = 'walking';
+  private waypoints: { x: number; z: number }[] = [];
+  private waypointIndex = 0;
+  private pathTimer = PATH_RECALC_INTERVAL; // 初回即座に計算
 
   constructor(private minion: Minion) {}
 
@@ -37,23 +48,22 @@ export class MinionAI {
       return { state: 'walking', moveX: 0, moveZ: 0, targetId: null, damage: 0 };
     }
 
-    const direction = this.minion.team === 'blue' ? 1 : -1;
     const enemyMinions = allMinions.filter(m => m.team !== this.minion.team && m.isAlive);
     const enemyStructures = structures.filter(s => s.team !== this.minion.team && s.isAlive && !s.isProtected());
 
-    // Target priority
-    let target: Entity | null = null;
+    // === ターゲット選択（攻撃判定） ===
+    let attackTarget: Entity | null = null;
 
-    // 1. Enemy minion attacking me
+    // 1. 自分を攻撃中の敵ミニオン
     if (attackingMeId) {
       const attacker = enemyMinions.find(m => m.id === attackingMeId);
       if (attacker && this.distanceTo(attacker) <= MINION_ATTACK_RANGE) {
-        target = attacker;
+        attackTarget = attacker;
       }
     }
 
-    // 2. Closest enemy minion in range
-    if (!target) {
+    // 2. 射程内の最も近い敵ミニオン
+    if (!attackTarget) {
       let closest: Minion | null = null;
       let closestDist = Infinity;
       for (const enemy of enemyMinions) {
@@ -63,71 +73,153 @@ export class MinionAI {
           closestDist = d;
         }
       }
-      target = closest;
+      attackTarget = closest;
     }
 
-    // 3. Enemy structure (unprotected)
-    if (!target) {
+    // 3. 射程内の敵構造物
+    if (!attackTarget) {
       for (const s of enemyStructures) {
-        const cx = s.x + s.width / 2;
-        const cy = s.y + s.height / 2;
-        const cz = s.z + s.depth / 2;
-        const dx = this.minion.x - cx;
-        const dy = this.minion.y - cy;
-        const dz = this.minion.z - cz;
-        const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (d <= MINION_ATTACK_RANGE + s.width / 2) {
-          target = s;
+        const d = this.distanceToStructure(s);
+        if (d <= MINION_ATTACK_RANGE) {
+          attackTarget = s;
           break;
         }
       }
     }
 
-    // 4. Enemy player in range (lowest priority)
-    if (!target && enemyPlayer && enemyPlayer.isAlive) {
+    // 4. 射程内の敵プレイヤー
+    if (!attackTarget && enemyPlayer && enemyPlayer.isAlive) {
       const dx = this.minion.x - enemyPlayer.x;
       const dy = this.minion.y - enemyPlayer.y;
       const dz = this.minion.z - enemyPlayer.z;
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (d <= MINION_ATTACK_RANGE) {
-        // プレイヤーをターゲットとして扱うが、IDは'player'固定
-        target = { id: 'player', team: enemyPlayer.isAlive ? 'blue' : 'blue', x: enemyPlayer.x, y: enemyPlayer.y, z: enemyPlayer.z, hp: 1, maxHp: 1, isAlive: enemyPlayer.isAlive, takeDamage: () => {} } as Entity;
+        attackTarget = {
+          id: 'player', team: 'blue',
+          x: enemyPlayer.x, y: enemyPlayer.y, z: enemyPlayer.z,
+          hp: 1, maxHp: 1, isAlive: true, takeDamage: () => {},
+        } as Entity;
       }
     }
 
-    // Attacking state
-    if (target) {
+    // 攻撃状態
+    if (attackTarget) {
       this.state = 'attacking';
       let damage = 0;
       if (this.minion.tryAttack(dt)) {
         damage = MINION_DAMAGE;
       }
-      return { state: 'attacking', moveX: 0, moveZ: 0, targetId: target.id, damage };
+      return { state: 'attacking', moveX: 0, moveZ: 0, targetId: attackTarget.id, damage };
     }
 
-    // Walking state with lane return
+    // === 移動（A*パスファインディング） ===
+    this.state = 'walking';
     this.minion.resetAttackTimer();
-    const targetX = LANE_CENTER_X;
-    const dx = targetX - this.minion.x;
-    let moveX = 0;
-    let moveZ = direction * MINION_MOVE_SPEED * dt;
 
-    if (Math.abs(dx) > 0.1) {
-      this.state = 'returning';
-      const totalDist = Math.sqrt(dx * dx + (MINION_MOVE_SPEED * dt) ** 2);
-      moveX = (dx / totalDist) * MINION_MOVE_SPEED * dt;
-      moveZ = (direction * MINION_MOVE_SPEED * dt / totalDist) * MINION_MOVE_SPEED * dt;
-    } else {
-      this.state = 'walking';
+    // 追跡ターゲットの検索（近くの敵ミニオン/プレイヤーに向かう）
+    let chaseTarget: { x: number; z: number } | null = null;
+
+    // 近くの敵ミニオンを追跡
+    let closestEnemy: Minion | null = null;
+    let closestEnemyDist = CHASE_RANGE;
+    for (const enemy of enemyMinions) {
+      const d = this.distanceTo(enemy);
+      if (d < closestEnemyDist) {
+        closestEnemy = enemy;
+        closestEnemyDist = d;
+      }
+    }
+    if (closestEnemy) {
+      chaseTarget = { x: closestEnemy.x, z: closestEnemy.z };
     }
 
-    return { state: this.state, moveX, moveZ, targetId: null, damage: 0 };
+    // 近くの敵プレイヤーを追跡（ミニオンより低優先）
+    if (!chaseTarget && enemyPlayer && enemyPlayer.isAlive) {
+      const dx = this.minion.x - enemyPlayer.x;
+      const dz = this.minion.z - enemyPlayer.z;
+      const d = Math.sqrt(dx * dx + dz * dz);
+      if (d < CHASE_RANGE) {
+        chaseTarget = { x: enemyPlayer.x, z: enemyPlayer.z };
+      }
+    }
+
+    // 追跡ターゲットがいる場合は直接向かう（パスファインディングなし）
+    if (chaseTarget) {
+      return this.moveToward(chaseTarget.x, chaseTarget.z, dt);
+    }
+
+    // 通常移動: A*パスでネクサスに向かう
+    this.pathTimer += dt;
+    if (this.pathTimer >= PATH_RECALC_INTERVAL || this.waypoints.length === 0) {
+      this.recalculatePath(structures);
+      this.pathTimer = 0;
+    }
+
+    // 次のウェイポイントに向かう
+    if (this.waypointIndex < this.waypoints.length) {
+      const wp = this.waypoints[this.waypointIndex];
+      const dx = wp.x - this.minion.x;
+      const dz = wp.z - this.minion.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+
+      if (dist < WAYPOINT_REACH_DIST) {
+        this.waypointIndex++;
+        if (this.waypointIndex >= this.waypoints.length) {
+          // パス終端に到達 → 再計算
+          this.pathTimer = PATH_RECALC_INTERVAL;
+        }
+        return { state: 'walking', moveX: 0, moveZ: 0, targetId: null, damage: 0 };
+      }
+
+      return this.moveToward(wp.x, wp.z, dt);
+    }
+
+    // フォールバック: 直線移動
+    const direction = this.minion.team === 'blue' ? 1 : -1;
+    return {
+      state: 'walking',
+      moveX: 0,
+      moveZ: direction * MINION_MOVE_SPEED * dt,
+      targetId: null,
+      damage: 0,
+    };
+  }
+
+  private recalculatePath(structures: Structure[]): void {
+    const goalZ = this.minion.team === 'blue' ? 200 : 10;
+    const goalX = LANE_CENTER_X;
+    const blocked = buildObstacleMap(structures);
+    this.waypoints = findPath(this.minion.x, this.minion.z, goalX, goalZ, blocked);
+    this.waypointIndex = 0;
+  }
+
+  private moveToward(targetX: number, targetZ: number, dt: number): MinionAIResult {
+    const dx = targetX - this.minion.x;
+    const dz = targetZ - this.minion.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < 0.01) {
+      return { state: 'walking', moveX: 0, moveZ: 0, targetId: null, damage: 0 };
+    }
+    const speed = MINION_MOVE_SPEED * dt;
+    const moveX = (dx / dist) * speed;
+    const moveZ = (dz / dist) * speed;
+    return { state: 'walking', moveX, moveZ, targetId: null, damage: 0 };
   }
 
   private distanceTo(entity: Entity): number {
     const dx = this.minion.x - entity.x;
     const dy = this.minion.y - entity.y;
     const dz = this.minion.z - entity.z;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  }
+
+  private distanceToStructure(s: Structure): number {
+    const cx = s.x + s.width / 2;
+    const cy = s.y + s.height / 2;
+    const cz = s.z + s.depth / 2;
+    const dx = this.minion.x - cx;
+    const dy = this.minion.y - cy;
+    const dz = this.minion.z - cz;
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
   }
 }
