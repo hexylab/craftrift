@@ -56,7 +56,11 @@ export function buildModel(def: ModelDefinition, texture: THREE.Texture): THREE.
       part.pivot[1] * scale,
       part.pivot[2] * scale,
     );
-    mesh.position.set(0, -h * scale / 2, 0);
+    // anchor='bottom': パーツがピボットから上に伸びる(頭/体) → +h/2
+    // anchor='top'(デフォルト): パーツがピボットから下に垂れる(腕/脚) → -h/2
+    const anchor = part.anchor ?? 'top';
+    const meshOffsetY = anchor === 'bottom' ? h * scale / 2 : -h * scale / 2;
+    mesh.position.set(0, meshOffsetY, 0);
 
     pivotGroup.add(mesh);
     root.add(pivotGroup);

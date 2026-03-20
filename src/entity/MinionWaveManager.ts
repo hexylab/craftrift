@@ -58,20 +58,27 @@ export class MinionWaveManager {
       const enemyPlayer = (minion.team !== 'blue' && playerInfo) ? playerInfo : undefined;
       const result = ai.update(dt, this.minions, this.structures, undefined, enemyPlayer);
 
-      // Apply movement with structure collision
+      // Apply movement with obstacle avoidance
       const newX = minion.x + result.moveX;
       const newZ = minion.z + result.moveZ;
       if (!this.collidesWithStructure(newX, minion.y, newZ)) {
         minion.x = newX;
         minion.z = newZ;
       } else {
-        // X方向のみ試す
-        if (!this.collidesWithStructure(newX, minion.y, minion.z)) {
-          minion.x = newX;
-        }
-        // Z方向のみ試す
+        // 障害物回避: Z方向に進めない場合、X方向にずれて迂回
+        // まずZ方向のみ試す
         if (!this.collidesWithStructure(minion.x, minion.y, newZ)) {
           minion.z = newZ;
+        } else {
+          // Z方向もブロック → X方向にステップして迂回
+          const avoidDir = minion.x < SPAWN_X ? -1 : 1; // レーン中央より左なら左へ、右なら右へ
+          const stepX = avoidDir * MINION_MOVE_SPEED * dt;
+          if (!this.collidesWithStructure(minion.x + stepX, minion.y, minion.z)) {
+            minion.x += stepX;
+          } else if (!this.collidesWithStructure(minion.x - stepX, minion.y, minion.z)) {
+            // 反対方向を試す
+            minion.x -= stepX;
+          }
         }
       }
 
