@@ -22,7 +22,7 @@ export class Renderer {
     directional.position.set(1, 2, 1);
     this.scene.add(directional);
 
-    this.fpsCamera = new FPSCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+    this.fpsCamera = new FPSCamera(75, window.innerWidth / window.innerHeight, 0.1, 250);
 
     window.addEventListener('resize', () => {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
