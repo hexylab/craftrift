@@ -33,6 +33,7 @@ export class Game {
   private hud!: HUD;
   private structures!: Structure[];
   private gameOver = false;
+  private gameStarted = false;
   private playerState!: PlayerState;
   private towerAIs!: TowerAI[];
   private projectileManager!: ProjectileManager;
@@ -101,11 +102,21 @@ export class Game {
   }
 
   private update(dt: number, time: number): void {
-    if (this.instructionsEl) {
-      this.instructionsEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
+    // 初回クリック前はインストラクション表示、ゲーム未開始
+    if (!this.gameStarted) {
+      if (this.instructionsEl) {
+        this.instructionsEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
+      }
+      if (this.input.isPointerLocked) {
+        this.gameStarted = true;
+      } else {
+        return;
+      }
     }
-    if (!this.input.isPointerLocked) return;
+
     if (this.gameOver) return;
+
+    // === シミュレーション（常に実行、Pointer Lock不要） ===
 
     // PlayerState更新（リスポーン判定）
     const respawned = this.playerState.update(dt);
@@ -121,38 +132,8 @@ export class Game {
       this.hud.hideDeathScreen();
     }
 
-    // 死亡中は操作不可
-    if (!this.playerState.isAlive) {
-      this.hud.showDeathScreen(this.playerState.respawnTimer);
-      this.input.consumeLeftClick();
-      this.input.consumeRightClick();
-      return;
-    }
-
-    const mouse = this.input.getMouseMovement();
-    this.renderer.fpsCamera.rotate(mouse.x, mouse.y);
-
-    if (this.input.isKeyDown('Space')) {
-      this.player.jump();
-    }
+    // 重力は常に適用
     this.player.updatePhysics(dt);
-
-    const forward = this.renderer.fpsCamera.getForward();
-    const right = this.renderer.fpsCamera.getRight();
-    let moveX = 0, moveZ = 0;
-    if (this.input.isKeyDown('KeyW')) { moveX += forward.x; moveZ += forward.z; }
-    if (this.input.isKeyDown('KeyS')) { moveX -= forward.x; moveZ -= forward.z; }
-    if (this.input.isKeyDown('KeyA')) { moveX -= right.x; moveZ -= right.z; }
-    if (this.input.isKeyDown('KeyD')) { moveX += right.x; moveZ += right.z; }
-
-    if (moveX !== 0 || moveZ !== 0) {
-      const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
-      this.player.move(moveX / len, moveZ / len, dt);
-    }
-
-    this.renderer.fpsCamera.setPosition(
-      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-    );
 
     // タワーAI更新（敵チームのみ）
     for (const ai of this.towerAIs) {
@@ -164,10 +145,10 @@ export class Game {
     }
 
     // プロジェクタイル更新
-    const hits = this.projectileManager.update(
+    const projectileHits = this.projectileManager.update(
       dt, this.player.x, this.player.y + PLAYER_HEIGHT / 2, this.player.z,
     );
-    for (const hit of hits) {
+    for (const hit of projectileHits) {
       if (!this.playerState.isInvincible()) {
         this.playerState.takeDamage(hit.damage);
         this.screenShake.trigger();
@@ -175,60 +156,11 @@ export class Game {
       }
     }
 
-    const dir = this.renderer.fpsCamera.getDirection();
-
-    const targetStructure = this.combatSystem.findTarget(
-      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-      dir.x, dir.y, dir.z,
-      this.structures,
-    );
-
-    const hit = this.blockInteraction.update(
-      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-      dir.x, dir.y, dir.z,
-    );
-
-    const leftClick = this.input.consumeLeftClick();
-    if (leftClick) {
-      const result = this.combatSystem.tryAttack(targetStructure, time / 1000);
-
-      if (result.hit) {
-        this.hud.showDamage(result);
-        if (result.destroyed) {
-          result.target.removeBlocks(this.world);
-          this.rebuildDirtyChunks();
-          this.checkVictory();
-        }
-      } else if (result.reason === 'protected') {
-        this.hud.showProtected();
-      } else if (result.reason === 'no_target' && hit) {
-        if (this.blockInteraction.breakBlock(hit)) {
-          this.rebuildDirtyChunks();
-        }
-      }
-    }
-
-    if (this.input.consumeRightClick()) {
-      if (hit) {
-        if (this.blockInteraction.placeBlock(hit, this.player.x, this.player.y, this.player.z)) {
-          this.rebuildDirtyChunks();
-        }
-      }
-    }
-
-    if (targetStructure) {
-      this.hud.showTarget(targetStructure);
-    } else {
-      this.hud.hideTarget();
-    }
-
-    // デバッグ: Kキーで自傷ダメージ
-    if (this.input.consumeKeyPress('KeyK')) {
-      if (!this.playerState.isInvincible()) {
-        this.playerState.takeDamage(DEBUG_DAMAGE);
-        this.screenShake.trigger();
-        this.hud.triggerDamageFlash();
-      }
+    // 死亡中のHUD表示
+    if (!this.playerState.isAlive) {
+      this.hud.showDeathScreen(this.playerState.respawnTimer);
+      this.input.consumeLeftClick();
+      this.input.consumeRightClick();
     }
 
     // プレイヤーHP HUD更新
@@ -250,6 +182,108 @@ export class Game {
 
     // ダメージフラッシュ更新
     this.hud.updateDamageFlash(dt);
+
+    // === 入力処理（Pointer Lock + 生存中のみ） ===
+
+    if (!this.input.isPointerLocked || !this.playerState.isAlive) {
+      // シェイクとカメラ同期は実行
+      this.renderer.fpsCamera.setPosition(
+        this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+      );
+      const shake = this.screenShake.update(dt);
+      if (shake.offsetX !== 0 || shake.offsetY !== 0) {
+        this.renderer.fpsCamera.setPosition(
+          this.player.eyeX + shake.offsetX,
+          this.player.eyeY + shake.offsetY,
+          this.player.eyeZ,
+        );
+      }
+      return;
+    }
+
+    // マウス操作
+    const mouse = this.input.getMouseMovement();
+    this.renderer.fpsCamera.rotate(mouse.x, mouse.y);
+
+    // ジャンプ
+    if (this.input.isKeyDown('Space')) {
+      this.player.jump();
+    }
+
+    // WASD移動
+    const forward = this.renderer.fpsCamera.getForward();
+    const right = this.renderer.fpsCamera.getRight();
+    let moveX = 0, moveZ = 0;
+    if (this.input.isKeyDown('KeyW')) { moveX += forward.x; moveZ += forward.z; }
+    if (this.input.isKeyDown('KeyS')) { moveX -= forward.x; moveZ -= forward.z; }
+    if (this.input.isKeyDown('KeyA')) { moveX -= right.x; moveZ -= right.z; }
+    if (this.input.isKeyDown('KeyD')) { moveX += right.x; moveZ += right.z; }
+
+    if (moveX !== 0 || moveZ !== 0) {
+      const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+      this.player.move(moveX / len, moveZ / len, dt);
+    }
+
+    this.renderer.fpsCamera.setPosition(
+      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+    );
+
+    // レイキャスト・戦闘
+    const dir = this.renderer.fpsCamera.getDirection();
+
+    const targetStructure = this.combatSystem.findTarget(
+      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+      dir.x, dir.y, dir.z,
+      this.structures,
+    );
+
+    const blockHit = this.blockInteraction.update(
+      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+      dir.x, dir.y, dir.z,
+    );
+
+    const leftClick = this.input.consumeLeftClick();
+    if (leftClick) {
+      const result = this.combatSystem.tryAttack(targetStructure, time / 1000);
+
+      if (result.hit) {
+        this.hud.showDamage(result);
+        if (result.destroyed) {
+          result.target.removeBlocks(this.world);
+          this.rebuildDirtyChunks();
+          this.checkVictory();
+        }
+      } else if (result.reason === 'protected') {
+        this.hud.showProtected();
+      } else if (result.reason === 'no_target' && blockHit) {
+        if (this.blockInteraction.breakBlock(blockHit)) {
+          this.rebuildDirtyChunks();
+        }
+      }
+    }
+
+    if (this.input.consumeRightClick()) {
+      if (blockHit) {
+        if (this.blockInteraction.placeBlock(blockHit, this.player.x, this.player.y, this.player.z)) {
+          this.rebuildDirtyChunks();
+        }
+      }
+    }
+
+    if (targetStructure) {
+      this.hud.showTarget(targetStructure);
+    } else {
+      this.hud.hideTarget();
+    }
+
+    // デバッグ: Kキーで自傷ダメージ
+    if (this.input.consumeKeyPress('KeyK')) {
+      if (!this.playerState.isInvincible()) {
+        this.playerState.takeDamage(DEBUG_DAMAGE);
+        this.screenShake.trigger();
+        this.hud.triggerDamageFlash();
+      }
+    }
 
     // 画面シェイク適用（フレーム最後）
     const shake = this.screenShake.update(dt);
