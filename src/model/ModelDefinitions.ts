@@ -96,7 +96,7 @@ export const SHEEP_MODEL: ModelDefinition = {
     // Body: ModelSheep1 addBox(-4,-10,-7, 8,16,6, 1.75) → 実効 11.5×19.5×9.5
     // rotationPoint(0,5,2) → pivot(0, 19, -2), rotX → -PI/2
     // mcCenter=(0,-2,-4) → worldOffset(0,2,4) → local(0,-4,2)
-    { name: 'body',          size: [11.5, 19.5, 9.5], pivot: [0, 19, -2],  offset: [0, -4, 2],   skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
+    { name: 'body',          size: [11.5, 19.5, 9.5], pivot: [0, 19, -2],  offset: [0, -1, -2],  skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
     // Legs: ModelSheep1 addBox(-2,0,-2, 4,6,4, 0.5) → 実効 5×7×5
     // mcCenter=(0,3,0) → offset(0,-3,0)
     { name: 'rightFrontLeg', size: [5, 7, 5],   pivot: [-3, 12, 5],  offset: [0, -3, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
