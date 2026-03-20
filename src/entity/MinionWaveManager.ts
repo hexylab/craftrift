@@ -11,7 +11,6 @@ import {
   applyEntityKnockback,
 } from '../physics/EntityPhysics';
 import { WalkAnimator, AttackAnimator } from '../model/Animator';
-import { MINION_MOVE_SPEED } from './Minion';
 import {
   DamageFlashState,
   createDamageFlash,
@@ -20,17 +19,21 @@ import {
   applyFlashToMesh,
 } from '../model/DamageFlash';
 import { createHealthBar, updateHealthBar } from '../ui/HealthBar3D';
+import {
+  MINION_MOVE_SPEED,
+  WAVE_INTERVAL,
+  FIRST_WAVE_DELAY,
+  WAVE_SIZE,
+  SPAWN_STAGGER,
+  BLUE_SPAWN_Z,
+  RED_SPAWN_Z,
+  SPAWN_X,
+} from '../config/GameBalance';
 
 /** EntityPhysicsが要求するWorldの最小インターフェース */
 export type WorldLike = { getBlock: (x: number, y: number, z: number) => unknown };
 
-export const WAVE_INTERVAL = 30.0;
-export const FIRST_WAVE_DELAY = 20.0; // 最初のウェーブまでの待機時間（秒）
-export const WAVE_SIZE = 3;
-export const SPAWN_STAGGER = 0.75; // 1体ごとのスポーン間隔（秒）
-export const BLUE_SPAWN_Z = 12; // Blue Nexus(Z=6, depth=5)の外側
-export const RED_SPAWN_Z = 197; // Red Nexus(Z=198, depth=5)の外側
-export const SPAWN_X = 9.0;
+export { WAVE_INTERVAL, FIRST_WAVE_DELAY, WAVE_SIZE, SPAWN_STAGGER, BLUE_SPAWN_Z, RED_SPAWN_Z, SPAWN_X };
 const SPAWN_Y = 4; // GRASS_Y(3) + 1 = 地面の上
 
 export class MinionWaveManager {

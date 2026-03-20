@@ -1,5 +1,6 @@
-export const SCREEN_SHAKE_INTENSITY = 0.15;
-export const SCREEN_SHAKE_DURATION = 0.2;
+import { SCREEN_SHAKE_INTENSITY, SCREEN_SHAKE_DURATION } from '../config/GameBalance';
+
+export { SCREEN_SHAKE_INTENSITY, SCREEN_SHAKE_DURATION };
 
 export class ScreenShake {
   private timer: number = 0;

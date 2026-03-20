@@ -1,5 +1,6 @@
-export const WALK_AMPLITUDE = 0.5; // ラジアン
-export const WALK_SPEED_FACTOR = 8.0;
+import { WALK_AMPLITUDE, WALK_SPEED_FACTOR } from '../config/GameBalance';
+
+export { WALK_AMPLITUDE, WALK_SPEED_FACTOR };
 const IDLE_AMPLITUDE = 0.02;
 const IDLE_SPEED = 1.5;
 const BLEND_SPEED = 8.0;

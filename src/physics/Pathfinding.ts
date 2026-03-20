@@ -2,12 +2,9 @@
 // A* pathfinding on 2D grid for ARAM lane
 
 import { Structure } from '../entity/Structure';
+import { LANE_X_MIN, LANE_X_MAX, LANE_Z_MIN, LANE_Z_MAX } from '../config/GameBalance';
 
-/** レーンの通行可能範囲 */
-export const LANE_X_MIN = 2;
-export const LANE_X_MAX = 16;
-export const LANE_Z_MIN = 2;
-export const LANE_Z_MAX = 207;
+export { LANE_X_MIN, LANE_X_MAX, LANE_Z_MIN, LANE_Z_MAX };
 
 /** グリッドセルサイズ（1ブロック=1セル） */
 // Grid resolution: 1 block = 1 cell

@@ -1,5 +1,7 @@
+import { THIRD_PERSON_DISTANCE } from '../config/GameBalance';
+
 export type ViewModeType = 'first-person' | 'third-person-back';
-export const THIRD_PERSON_DISTANCE = 4.0;
+export { THIRD_PERSON_DISTANCE };
 
 const MODE_CYCLE: ViewModeType[] = ['first-person', 'third-person-back'];
 

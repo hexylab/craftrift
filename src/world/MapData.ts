@@ -1,6 +1,7 @@
 import { World } from './World';
 import { BlockType } from './Block';
 import { Structure } from '../entity/Structure';
+import { TOWER_HP, NEXUS_HP } from '../config/GameBalance';
 
 const MAP_WIDTH = 19;
 const MAP_LENGTH = 210;
@@ -15,8 +16,7 @@ const GRASS_Y = 3;
 
 const WALL_TOP_Y = 8;
 
-export const TOWER_HP = 1500;
-export const NEXUS_HP = 3000;
+export { TOWER_HP, NEXUS_HP };
 
 export const SPAWN_POSITION = {
   x: 9.0,

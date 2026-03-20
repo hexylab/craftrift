@@ -7,13 +7,17 @@ import {
   tryJump,
   applyEntityKnockback,
 } from '../physics/EntityPhysics';
+import {
+  PLAYER_WIDTH,
+  PLAYER_HEIGHT,
+  PLAYER_EYE_HEIGHT,
+  MOVE_SPEED,
+  GRAVITY,
+  JUMP_VELOCITY,
+  TERMINAL_VELOCITY,
+} from '../config/GameBalance';
 
-export const PLAYER_WIDTH = 0.6;
-export const PLAYER_HEIGHT = 1.8;
-export const PLAYER_EYE_HEIGHT = 1.6;
-export const MOVE_SPEED = 4.3;
-
-export { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY } from '../physics/EntityPhysics';
+export { PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_EYE_HEIGHT, MOVE_SPEED, GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY };
 
 export class Player implements EntityBody {
   x: number;

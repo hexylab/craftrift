@@ -1,10 +1,9 @@
 import { Structure } from './Structure';
 import { Team } from './Entity';
 import { Minion } from './Minion';
+import { TOWER_ATTACK_RANGE, TOWER_ATTACK_INTERVAL, TOWER_DAMAGE } from '../config/GameBalance';
 
-export const TOWER_ATTACK_RANGE = 15.0;
-export const TOWER_ATTACK_INTERVAL = 2.0;
-export const TOWER_DAMAGE = 50;
+export { TOWER_ATTACK_RANGE, TOWER_ATTACK_INTERVAL, TOWER_DAMAGE };
 
 export interface FireCommand {
   originX: number;
