@@ -11,6 +11,9 @@ import { buildChunkGeometryData } from '../world/ChunkMesher';
 import { CombatSystem } from '../entity/CombatSystem';
 import { HUD } from '../ui/HUD';
 import { Structure } from '../entity/Structure';
+import { PlayerState } from '../player/PlayerState';
+
+const DEBUG_DAMAGE = 50;
 
 export class Game {
   private renderer!: Renderer;
@@ -27,6 +30,7 @@ export class Game {
   private hud!: HUD;
   private structures!: Structure[];
   private gameOver = false;
+  private playerState!: PlayerState;
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -49,6 +53,10 @@ export class Game {
     this.structures = structures;
     this.combatSystem = new CombatSystem();
     this.hud = new HUD();
+    this.playerState = new PlayerState();
+    this.playerState.onDeath(() => {
+      // 将来のインベントリドロップ拡張ポイント
+    });
 
     this.player = new Player(
       SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z,
@@ -79,6 +87,28 @@ export class Game {
     }
     if (!this.input.isPointerLocked) return;
     if (this.gameOver) return;
+
+    // PlayerState更新（リスポーン判定）
+    const respawned = this.playerState.update(dt);
+    if (respawned) {
+      this.player.x = SPAWN_POSITION.x;
+      this.player.y = SPAWN_POSITION.y;
+      this.player.z = SPAWN_POSITION.z;
+      this.player.velocityY = 0;
+      this.player.onGround = false;
+      this.renderer.fpsCamera.setPosition(
+        this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+      );
+      this.hud.hideDeathScreen();
+    }
+
+    // 死亡中は操作不可
+    if (!this.playerState.isAlive) {
+      this.hud.showDeathScreen(this.playerState.respawnTimer);
+      this.input.consumeLeftClick();
+      this.input.consumeRightClick();
+      return;
+    }
 
     const mouse = this.input.getMouseMovement();
     this.renderer.fpsCamera.rotate(mouse.x, mouse.y);
@@ -151,6 +181,18 @@ export class Game {
     } else {
       this.hud.hideTarget();
     }
+
+    // デバッグ: Kキーで自傷ダメージ
+    if (this.input.consumeKeyPress('KeyK')) {
+      this.playerState.takeDamage(DEBUG_DAMAGE);
+    }
+
+    // プレイヤーHP HUD更新
+    this.hud.updatePlayerHp(
+      this.playerState.hp,
+      this.playerState.maxHp,
+      this.playerState.isInvincible(),
+    );
   }
 
   private checkVictory(): void {
