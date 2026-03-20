@@ -31,9 +31,9 @@ export function buildObstacleMap(structures: Structure[]): Set<string> {
     if (!s.isAlive) continue;
     // 構造物のAABBをグリッドセルに変換（1ブロックの余裕を持たせる）
     const minX = Math.floor(s.x) - 1;
-    const maxX = Math.floor(s.x + s.width);
+    const maxX = Math.floor(s.x + s.width) + 1;
     const minZ = Math.floor(s.z) - 1;
-    const maxZ = Math.floor(s.z + s.depth);
+    const maxZ = Math.floor(s.z + s.depth) + 1;
     for (let x = minX; x <= maxX; x++) {
       for (let z = minZ; z <= maxZ; z++) {
         blocked.add(`${x},${z}`);
@@ -159,8 +159,8 @@ export function findPath(
     }
   }
 
-  // パスが見つからない場合 → 直線で向かう（フォールバック）
-  return [{ x: goalX, z: goalZ }];
+  // パスが見つからない場合 → 空配列を返す（ミニオンはリトライ待機）
+  return [];
 }
 
 function heuristic(x1: number, z1: number, x2: number, z2: number): number {

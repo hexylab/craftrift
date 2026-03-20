@@ -38,9 +38,9 @@ describe('findPath', () => {
     const blocked = buildObstacleMap([s]);
     const path = findPath(9, 65, 9, 80, blocked);
     expect(path.length).toBeGreaterThan(0);
-    // パスの全ポイントがブロックセルに入っていないこと
+    // パスの全ポイントがブロックセルに入っていないこと（セル中心+0.5のためfloorでセル判定）
     for (const p of path) {
-      const key = `${Math.round(p.x)},${Math.round(p.z)}`;
+      const key = `${Math.floor(p.x)},${Math.floor(p.z)}`;
       expect(blocked.has(key)).toBe(false);
     }
     // ゴールに到達
@@ -60,5 +60,26 @@ describe('findPath', () => {
   it('returns empty for same start and goal', () => {
     const path = findPath(9, 20, 9, 20, new Set());
     expect(path.length).toBe(0);
+  });
+
+  it('returns empty array when path is unreachable', () => {
+    // Create a wall that blocks the entire lane width
+    const blocked = new Set<string>();
+    for (let x = LANE_X_MIN; x <= LANE_X_MAX; x++) {
+      blocked.add(`${x},50`);
+    }
+    const path = findPath(9, 45, 9, 55, blocked);
+    expect(path.length).toBe(0);
+  });
+});
+
+describe('buildObstacleMap symmetric margins', () => {
+  it('has symmetric obstacle margins', () => {
+    const s = createStructure(8, 70, 3, 3);
+    const blocked = buildObstacleMap([s]);
+    // min side margin
+    expect(blocked.has('7,69')).toBe(true);
+    // max side margin
+    expect(blocked.has('11,73')).toBe(true);
   });
 });
