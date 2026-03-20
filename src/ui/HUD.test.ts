@@ -33,7 +33,22 @@ function setupDOM(): void {
   victory.id = 'victory-screen';
   victory.style.display = 'none';
 
-  document.body.append(targetInfo, feedback, victory);
+  const playerHpBarFill = document.createElement('div');
+  playerHpBarFill.id = 'player-hp-bar-fill';
+  playerHpBarFill.style.width = '100%';
+
+  const playerHpText = document.createElement('div');
+  playerHpText.id = 'player-hp-text';
+
+  const deathOverlay = document.createElement('div');
+  deathOverlay.id = 'death-overlay';
+  deathOverlay.style.display = 'none';
+
+  const respawnTimer = document.createElement('div');
+  respawnTimer.id = 'respawn-timer';
+  deathOverlay.appendChild(respawnTimer);
+
+  document.body.append(targetInfo, feedback, victory, playerHpBarFill, playerHpText, deathOverlay);
 }
 
 function createStructure(hp: number, maxHp: number): Structure {
@@ -107,5 +122,65 @@ describe('HUD', () => {
     vi.advanceTimersByTime(1500);
     expect(document.getElementById('combat-feedback')!.style.display).toBe('none');
     vi.useRealTimers();
+  });
+
+  describe('player HP', () => {
+    it('updatePlayerHp sets bar width', () => {
+      const hud = new HUD();
+      hud.updatePlayerHp(50, 100, false);
+      expect(document.getElementById('player-hp-bar-fill')!.style.width).toBe('50%');
+    });
+
+    it('updatePlayerHp shows white color when invincible', () => {
+      const hud = new HUD();
+      hud.updatePlayerHp(100, 100, true);
+      const bg = document.getElementById('player-hp-bar-fill')!.style.backgroundColor;
+      expect(bg === '#ffffff' || bg === 'rgb(255, 255, 255)').toBe(true);
+    });
+
+    it('updatePlayerHp updates text', () => {
+      const hud = new HUD();
+      hud.updatePlayerHp(75, 100, false);
+      expect(document.getElementById('player-hp-text')!.textContent).toBe('75 / 100');
+    });
+
+    it('updatePlayerHp color changes by HP ratio', () => {
+      const hud = new HUD();
+      const fill = document.getElementById('player-hp-bar-fill')!;
+
+      hud.updatePlayerHp(80, 100, false);
+      const greenColor = fill.style.backgroundColor;
+
+      hud.updatePlayerHp(40, 100, false);
+      const yellowColor = fill.style.backgroundColor;
+
+      hud.updatePlayerHp(10, 100, false);
+      const redColor = fill.style.backgroundColor;
+
+      expect(greenColor).not.toBe(yellowColor);
+      expect(yellowColor).not.toBe(redColor);
+      expect(greenColor).not.toBe(redColor);
+    });
+  });
+
+  describe('death screen', () => {
+    it('showDeathScreen displays overlay', () => {
+      const hud = new HUD();
+      hud.showDeathScreen(4.2);
+      expect(document.getElementById('death-overlay')!.style.display).toBe('flex');
+    });
+
+    it('showDeathScreen shows ceiling of remaining time', () => {
+      const hud = new HUD();
+      hud.showDeathScreen(3.1);
+      expect(document.getElementById('respawn-timer')!.textContent).toContain('4');
+    });
+
+    it('hideDeathScreen hides overlay', () => {
+      const hud = new HUD();
+      hud.showDeathScreen(5);
+      hud.hideDeathScreen();
+      expect(document.getElementById('death-overlay')!.style.display).toBe('none');
+    });
   });
 });

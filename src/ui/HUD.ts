@@ -10,6 +10,10 @@ export class HUD {
   private feedbackEl: HTMLElement | null;
   private victoryEl: HTMLElement | null;
   private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private playerHpBarFillEl: HTMLElement | null;
+  private playerHpTextEl: HTMLElement | null;
+  private deathOverlayEl: HTMLElement | null;
+  private respawnTimerEl: HTMLElement | null;
 
   constructor() {
     this.targetInfoEl = document.getElementById('target-info');
@@ -18,6 +22,10 @@ export class HUD {
     this.hpTextEl = document.getElementById('hp-text');
     this.feedbackEl = document.getElementById('combat-feedback');
     this.victoryEl = document.getElementById('victory-screen');
+    this.playerHpBarFillEl = document.getElementById('player-hp-bar-fill');
+    this.playerHpTextEl = document.getElementById('player-hp-text');
+    this.deathOverlayEl = document.getElementById('death-overlay');
+    this.respawnTimerEl = document.getElementById('respawn-timer');
   }
 
   showTarget(structure: Structure): void {
@@ -70,6 +78,40 @@ export class HUD {
   showVictory(): void {
     if (this.victoryEl) {
       this.victoryEl.style.display = 'flex';
+    }
+  }
+
+  updatePlayerHp(hp: number, maxHp: number, isInvincible: boolean): void {
+    const ratio = hp / maxHp;
+    if (this.playerHpBarFillEl) {
+      this.playerHpBarFillEl.style.width = `${Math.round(ratio * 100)}%`;
+      if (isInvincible) {
+        this.playerHpBarFillEl.style.backgroundColor = '#ffffff';
+      } else if (ratio > 0.5) {
+        this.playerHpBarFillEl.style.backgroundColor = '#44bb44';
+      } else if (ratio > 0.25) {
+        this.playerHpBarFillEl.style.backgroundColor = '#ddbb22';
+      } else {
+        this.playerHpBarFillEl.style.backgroundColor = '#dd3333';
+      }
+    }
+    if (this.playerHpTextEl) {
+      this.playerHpTextEl.textContent = `${hp} / ${maxHp}`;
+    }
+  }
+
+  showDeathScreen(remainingTime: number): void {
+    if (this.deathOverlayEl) {
+      this.deathOverlayEl.style.display = 'flex';
+    }
+    if (this.respawnTimerEl) {
+      this.respawnTimerEl.textContent = `リスポーンまで: ${Math.ceil(remainingTime)}秒`;
+    }
+  }
+
+  hideDeathScreen(): void {
+    if (this.deathOverlayEl) {
+      this.deathOverlayEl.style.display = 'none';
     }
   }
 }
