@@ -16,6 +16,10 @@ import { TowerAI } from '../entity/TowerAI';
 import { ProjectileManager } from '../entity/ProjectileManager';
 import { ProjectileTarget } from '../entity/Projectile';
 import { ScreenShake } from '../effects/ScreenShake';
+import { MinionWaveManager } from '../entity/MinionWaveManager';
+import { ViewMode } from '../player/ViewMode';
+import { applyKnockback, KNOCKBACK_VERTICAL } from '../physics/Knockback';
+import { Entity } from '../entity/Entity';
 
 const DEBUG_DAMAGE = 100;
 
@@ -40,6 +44,8 @@ export class Game {
   private projectileManager!: ProjectileManager;
   private screenShake!: ScreenShake;
   private playerTarget!: ProjectileTarget;
+  private minionWaveManager!: MinionWaveManager;
+  private viewMode!: ViewMode;
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -72,6 +78,8 @@ export class Game {
     this.screenShake = new ScreenShake();
     // プレイヤーをProjectileTargetとして表すアダプターオブジェクト
     this.playerTarget = { x: 0, y: 0, z: 0, isAlive: true };
+    this.minionWaveManager = new MinionWaveManager(this.renderer.scene, this.structures);
+    this.viewMode = new ViewMode();
 
     this.player = new Player(
       SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z,
@@ -145,22 +153,74 @@ export class Game {
     this.playerTarget.z = this.player.z;
     this.playerTarget.isAlive = this.playerState.isAlive;
 
-    // タワーAI更新（敵チームのみ）
+    // ミニオンウェーブ更新
+    this.minionWaveManager.update(dt, this.structures);
+
+    // タワーAI更新 — REDチーム（blueミニオン + プレイヤーを攻撃）
     for (const ai of this.towerAIs) {
       if (ai.structure.team === 'blue') continue;
-      const cmd = ai.update(dt, this.player.x, this.player.y, this.player.z, this.playerState.isAlive);
+      const enemyMinions = this.minionWaveManager.getTeamMinions('blue');
+      const cmd = ai.update(dt, this.playerTarget, enemyMinions);
       if (cmd) {
-        this.projectileManager.spawn(cmd, this.playerTarget);
+        let target: ProjectileTarget;
+        if (cmd.targetId) {
+          const minion = enemyMinions.find(m => m.id === cmd.targetId);
+          target = minion ?? this.playerTarget;
+        } else {
+          target = this.playerTarget;
+        }
+        this.projectileManager.spawn(cmd, target);
+      }
+    }
+
+    // タワーAI更新 — BLUEチーム（redミニオンを攻撃、プレイヤーは味方なので攻撃しない）
+    for (const ai of this.towerAIs) {
+      if (ai.structure.team === 'red') continue;
+      const enemyMinions = this.minionWaveManager.getTeamMinions('red');
+      const dummyPlayer: ProjectileTarget = { x: 0, y: -999, z: 0, isAlive: false };
+      const cmd = ai.update(dt, dummyPlayer, enemyMinions);
+      if (cmd && cmd.targetId) {
+        const minion = enemyMinions.find(m => m.id === cmd.targetId);
+        if (minion) this.projectileManager.spawn(cmd, minion);
       }
     }
 
     // プロジェクタイル更新
     const projectileHits = this.projectileManager.update(dt);
     for (const hit of projectileHits) {
-      if (!this.playerState.isInvincible()) {
-        this.playerState.takeDamage(hit.damage);
-        this.screenShake.trigger();
-        this.hud.triggerDamageFlash();
+      if (hit.target === this.playerTarget) {
+        // プレイヤーへのヒット
+        if (!this.playerState.isInvincible()) {
+          this.playerState.takeDamage(hit.damage);
+          this.screenShake.trigger();
+          this.hud.triggerDamageFlash();
+          const tower = this.towerAIs.find(ai => ai.structure.team === hit.team);
+          if (tower) {
+            applyKnockback(
+              this.player.knockback,
+              tower.getCenterX(), tower.getCenterY(), tower.getCenterZ(),
+              this.player.x, this.player.y, this.player.z,
+            );
+            this.player.velocityY += KNOCKBACK_VERTICAL;
+          }
+        }
+      } else {
+        // ミニオンへのヒット
+        const minion = hit.target as Entity;
+        if (minion.isAlive) {
+          minion.takeDamage(hit.damage);
+          const kb = this.minionWaveManager.getKnockback(minion.id);
+          if (kb) {
+            const tower = this.towerAIs.find(ai => ai.structure.team === hit.team);
+            if (tower) {
+              applyKnockback(
+                kb,
+                tower.getCenterX(), tower.getCenterY(), tower.getCenterZ(),
+                minion.x, minion.y, minion.z,
+              );
+            }
+          }
+        }
       }
     }
 
@@ -218,6 +278,11 @@ export class Game {
       this.player.jump();
     }
 
+    // F5: 視点モード切替
+    if (this.input.consumeKeyPress('F5')) {
+      this.viewMode.toggle();
+    }
+
     // WASD移動
     const forward = this.renderer.fpsCamera.getForward();
     const right = this.renderer.fpsCamera.getRight();
@@ -232,9 +297,20 @@ export class Game {
       this.player.move(moveX / len, moveZ / len, dt);
     }
 
-    this.renderer.fpsCamera.setPosition(
-      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-    );
+    // カメラ位置更新（視点モードに応じて）
+    if (this.viewMode.isFirstPerson) {
+      this.renderer.fpsCamera.setPosition(
+        this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+      );
+    } else {
+      const camForward = this.renderer.fpsCamera.getForward();
+      const offset = this.viewMode.getCameraOffset(camForward.x, camForward.y, camForward.z);
+      this.renderer.fpsCamera.setPosition(
+        this.player.eyeX + offset.x,
+        this.player.eyeY + offset.y,
+        this.player.eyeZ + offset.z,
+      );
+    }
 
     // レイキャスト・戦闘
     const dir = this.renderer.fpsCamera.getDirection();

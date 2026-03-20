@@ -1,4 +1,5 @@
 import { World } from '../world/World';
+import { KnockbackState, createKnockbackState, updateKnockback, hasKnockback } from '../physics/Knockback';
 
 export const PLAYER_WIDTH = 0.6;
 export const PLAYER_HEIGHT = 1.8;
@@ -15,6 +16,7 @@ export class Player {
   z: number;
   velocityY = 0;
   onGround = false;
+  knockback: KnockbackState = createKnockbackState();
 
   constructor(x: number, y: number, z: number, private world: World) {
     this.x = x;
@@ -35,6 +37,14 @@ export class Player {
   }
 
   updatePhysics(dt: number): void {
+    if (hasKnockback(this.knockback)) {
+      const kbX = this.knockback.vx * dt;
+      const kbZ = this.knockback.vz * dt;
+      if (kbX !== 0) this.x = this.moveAxis('x', kbX);
+      if (kbZ !== 0) this.z = this.moveAxis('z', kbZ);
+      updateKnockback(this.knockback, dt);
+    }
+
     this.velocityY -= GRAVITY * dt;
     this.velocityY = Math.max(this.velocityY, -TERMINAL_VELOCITY);
     this.moveAxisY(this.velocityY * dt);
