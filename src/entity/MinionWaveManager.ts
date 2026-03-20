@@ -7,6 +7,8 @@ import { KnockbackState, createKnockbackState } from '../physics/Knockback';
 import { applyGravity, moveWithCollision, tryJump, applyEntityKnockback } from '../physics/EntityPhysics';
 import { WalkAnimator, AttackAnimator } from '../model/Animator';
 import { MINION_MOVE_SPEED } from './Minion';
+import { DamageFlashState, createDamageFlash, triggerFlash, updateFlash, applyFlashToMesh } from '../model/DamageFlash';
+import { createHealthBar, updateHealthBar } from '../ui/HealthBar3D';
 
 /** EntityPhysicsが要求するWorldの最小インターフェース */
 export type WorldLike = { getBlock: (x: number, y: number, z: number) => unknown };
@@ -26,6 +28,8 @@ export class MinionWaveManager {
   private walkAnimators: Map<string, WalkAnimator> = new Map();
   private attackAnimators: Map<string, AttackAnimator> = new Map();
   private forwardAngles: Map<string, number> = new Map();
+  private damageFlashes: Map<string, DamageFlashState> = new Map();
+  private healthBars: Map<string, THREE.Sprite> = new Map();
   private waveTimer = WAVE_INTERVAL; // Triggers first wave immediately
   private waveCount = 0;
   private pendingPlayerDamage = 0;
@@ -105,6 +109,9 @@ export class MinionWaveManager {
             this.structures.find(s => s.id === result.targetId);
           if (target && target.isAlive) {
             target.takeDamage(result.damage);
+            // ダメージを受けたミニオンにフラッシュを発動
+            const targetFlash = this.damageFlashes.get(result.targetId);
+            if (targetFlash) triggerFlash(targetFlash);
           }
         }
       }
@@ -145,6 +152,19 @@ export class MinionWaveManager {
             if (headGroup) headGroup.rotation.x += attackAngle * 0.3;
           }
         }
+
+        // ダメージフラッシュの更新と適用
+        const flash = this.damageFlashes.get(minion.id);
+        if (flash) {
+          updateFlash(flash, dt);
+          applyFlashToMesh(mesh, flash);
+        }
+
+        // HPバーの更新
+        const hpBar = this.healthBars.get(minion.id);
+        if (hpBar) {
+          updateHealthBar(hpBar, minion.hp, minion.maxHp);
+        }
       }
     }
 
@@ -174,6 +194,33 @@ export class MinionWaveManager {
       }
     }
 
+    // プレイヤー-ミニオン押し出し（separation）
+    if (playerInfo && playerInfo.isAlive) {
+      const PLAYER_RADIUS = 0.3;
+      const MINION_RADIUS = 0.4;
+      const MIN_DIST = PLAYER_RADIUS + MINION_RADIUS;
+
+      for (const minion of this.minions) {
+        if (!minion.isAlive) continue;
+
+        // Y差が大きい場合はスキップ（ジャンプ中、異なる高さ）
+        if (Math.abs(minion.y - playerInfo.y) > 1.0) continue;
+
+        const dx = minion.x - playerInfo.x;
+        const dz = minion.z - playerInfo.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        if (dist < MIN_DIST && dist > 0.001) {
+          const overlap = MIN_DIST - dist;
+          const nx = dx / dist;
+          const nz = dz / dist;
+          // ミニオンを100%押し出す（プレイヤーは自身の物理で対応）
+          minion.x += nx * overlap;
+          minion.z += nz * overlap;
+        }
+      }
+    }
+
     // メッシュ位置の最終同期（押し出し後）
     for (const minion of this.minions) {
       if (!minion.isAlive) continue;
@@ -196,6 +243,8 @@ export class MinionWaveManager {
       this.walkAnimators.delete(m.id);
       this.attackAnimators.delete(m.id);
       this.forwardAngles.delete(m.id);
+      this.damageFlashes.delete(m.id);
+      this.healthBars.delete(m.id);
     }
     this.minions = this.minions.filter(m => m.isAlive);
   }
@@ -209,6 +258,7 @@ export class MinionWaveManager {
       this.minions.push(minion);
       this.ais.set(id, new MinionAI(minion));
       this.knockbacks.set(id, createKnockbackState());
+      this.damageFlashes.set(id, createDamageFlash());
 
       // Create mesh (use model builder if provided, else placeholder box)
       let mesh: THREE.Group;
@@ -227,6 +277,10 @@ export class MinionWaveManager {
       mesh.position.set(minion.x, minion.y, minion.z);
       // チーム方向に向ける: Blue→+Z方向(0), Red→-Z方向(π)
       mesh.rotation.y = team === 'red' ? Math.PI : 0;
+      // HPバーをメッシュの子として追加（ミニオンと一緒に動く）
+      const hpBar = createHealthBar(minion.height);
+      mesh.add(hpBar);
+      this.healthBars.set(id, hpBar);
       this.scene.add(mesh);
       this.meshes.set(id, mesh);
       this.walkAnimators.set(id, new WalkAnimator());
@@ -246,5 +300,11 @@ export class MinionWaveManager {
     const d = this.pendingPlayerDamage;
     this.pendingPlayerDamage = 0;
     return d;
+  }
+
+  /** 外部（Game.ts）からミニオンのダメージフラッシュを発動 */
+  triggerMinionFlash(minionId: string): void {
+    const flash = this.damageFlashes.get(minionId);
+    if (flash) triggerFlash(flash);
   }
 }
