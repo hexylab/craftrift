@@ -105,7 +105,7 @@ export function findPath(
   ];
 
   let iterations = 0;
-  const MAX_ITERATIONS = 2000; // パフォーマンス制限
+  const MAX_ITERATIONS = 5000; // パフォーマンス制限（ARAMレーン210ブロック対応）
 
   while (open.size > 0 && iterations < MAX_ITERATIONS) {
     iterations++;

@@ -143,8 +143,14 @@ export class MinionAI {
       }
     }
 
-    // 追跡ターゲットがいる場合は直接向かう（パスファインディングなし）
+    // 追跡ターゲットがいる場合、そちらをA*ゴールにして経路再計算
     if (chaseTarget) {
+      const blocked = buildObstacleMap(structures);
+      const chasePath = findPath(this.minion.x, this.minion.z, chaseTarget.x, chaseTarget.z, blocked);
+      if (chasePath.length > 0) {
+        // パスの最初のウェイポイントに向かう
+        return this.moveToward(chasePath[0].x, chasePath[0].z, dt);
+      }
       return this.moveToward(chaseTarget.x, chaseTarget.z, dt);
     }
 
@@ -186,11 +192,43 @@ export class MinionAI {
   }
 
   private recalculatePath(structures: Structure[]): void {
-    const goalZ = this.minion.team === 'blue' ? 200 : 10;
-    const goalX = LANE_CENTER_X;
+    // 移動先: 最も味方側に近い未保護の敵構造物
+    const target = this.findNearestEnemyStructure(structures);
+    let goalX: number;
+    let goalZ: number;
+    if (target) {
+      goalX = target.x + target.width / 2;
+      goalZ = target.z + target.depth / 2;
+    } else {
+      // 全構造物が破壊された場合、敵ネクサス位置へ
+      goalX = LANE_CENTER_X;
+      goalZ = this.minion.team === 'blue' ? 200 : 10;
+    }
     const blocked = buildObstacleMap(structures);
     this.waypoints = findPath(this.minion.x, this.minion.z, goalX, goalZ, blocked);
     this.waypointIndex = 0;
+  }
+
+  /**
+   * 最も味方側に近い未保護の敵構造物を探す。
+   * LoL ARAM: T1(outer) → T2(inner) → Nexus の順で攻撃する。
+   */
+  private findNearestEnemyStructure(structures: Structure[]): Structure | null {
+    const enemies = structures.filter(
+      s => s.team !== this.minion.team && s.isAlive && !s.isProtected(),
+    );
+    if (enemies.length === 0) return null;
+
+    // 味方側に最も近い（Blueミニオン→Z小さい方、Redミニオン→Z大きい方）
+    const direction = this.minion.team === 'blue' ? 1 : -1;
+    enemies.sort((a, b) => {
+      const aZ = a.z + a.depth / 2;
+      const bZ = b.z + b.depth / 2;
+      return direction > 0
+        ? aZ - bZ  // Blue: Z小さい敵構造物が優先（味方側に近い）
+        : bZ - aZ; // Red: Z大きい敵構造物が優先
+    });
+    return enemies[0];
   }
 
   private moveToward(targetX: number, targetZ: number, dt: number): MinionAIResult {
