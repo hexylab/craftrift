@@ -25,8 +25,7 @@ import { ATTACK_RANGE, ATTACK_DAMAGE, ATTACK_COOLDOWN } from '../entity/CombatSy
 import { buildModel } from '../model/MobModel';
 import { SHEEP_MODEL, PLAYER_MODEL } from '../model/ModelDefinitions';
 import { WalkAnimator, AttackAnimator } from '../model/Animator';
-
-const DEBUG_DAMAGE = 100;
+import { createDamageFlash, triggerFlash, updateFlash, applyFlashToMesh, DamageFlashState } from '../model/DamageFlash';
 
 export class Game {
   private renderer!: Renderer;
@@ -55,6 +54,7 @@ export class Game {
   private armModel!: THREE.Group;
   private playerWalkAnimator!: WalkAnimator;
   private playerAttackAnimator!: AttackAnimator;
+  private playerFlash: DamageFlashState = createDamageFlash();
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -216,6 +216,7 @@ export class Game {
     const minionDamage = this.minionWaveManager.consumePlayerDamage();
     if (minionDamage > 0 && !this.playerState.isInvincible()) {
       this.playerState.takeDamage(minionDamage);
+      triggerFlash(this.playerFlash);
       this.screenShake.trigger();
       this.hud.triggerDamageFlash();
     }
@@ -256,6 +257,7 @@ export class Game {
         // プレイヤーへのヒット
         if (!this.playerState.isInvincible()) {
           this.playerState.takeDamage(hit.damage);
+          triggerFlash(this.playerFlash);
           this.screenShake.trigger();
           this.hud.triggerDamageFlash();
           const tower = this.towerAIs.find(ai => ai.structure.team === hit.team);
@@ -314,6 +316,9 @@ export class Game {
 
     // ダメージフラッシュ更新
     this.hud.updateDamageFlash(dt);
+    updateFlash(this.playerFlash, dt);
+    if (this.playerModel) applyFlashToMesh(this.playerModel, this.playerFlash);
+    if (this.armModel) applyFlashToMesh(this.armModel, this.playerFlash);
 
     // === 入力処理（Pointer Lock + 生存中のみ） ===
 
@@ -418,6 +423,7 @@ export class Game {
         // ミニオンへの攻撃（構造物がなければ）
         if (targetMinion && result.reason !== 'cooldown') {
           targetMinion.takeDamage(ATTACK_DAMAGE);
+          this.minionWaveManager.triggerMinionFlash(targetMinion.id);
         } else if (blockHit && result.reason !== 'cooldown') {
           if (this.blockInteraction.breakBlock(blockHit)) {
             this.rebuildDirtyChunks();
@@ -456,15 +462,6 @@ export class Game {
       this.hud.showTarget(targetStructure);
     } else {
       this.hud.hideTarget();
-    }
-
-    // デバッグ: Kキーで自傷ダメージ
-    if (this.input.consumeKeyPress('KeyK')) {
-      if (!this.playerState.isInvincible()) {
-        this.playerState.takeDamage(DEBUG_DAMAGE);
-        this.screenShake.trigger();
-        this.hud.triggerDamageFlash();
-      }
     }
 
     // 画面シェイク適用（フレーム最後、viewMode対応）
