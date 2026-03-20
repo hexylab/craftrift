@@ -56,11 +56,33 @@ function setupDOM(): void {
   damageFlash.id = 'damage-flash';
   damageFlash.style.display = 'none';
 
-  document.body.append(targetInfo, feedback, victory, playerHpBarFill, playerHpText, deathOverlay, towerWarning, damageFlash);
+  document.body.append(
+    targetInfo,
+    feedback,
+    victory,
+    playerHpBarFill,
+    playerHpText,
+    deathOverlay,
+    towerWarning,
+    damageFlash,
+  );
 }
 
 function createStructure(hp: number, maxHp: number): Structure {
-  const s = new Structure('red-t2', 'red', 8, 4, 168, 'tower', maxHp, 3, 6, 3, BlockType.RED_TOWER, null);
+  const s = new Structure(
+    'red-t2',
+    'red',
+    8,
+    4,
+    168,
+    'tower',
+    maxHp,
+    3,
+    6,
+    3,
+    BlockType.RED_TOWER,
+    null,
+  );
   if (hp < maxHp) s.takeDamage(maxHp - hp);
   return s;
 }

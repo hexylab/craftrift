@@ -15,8 +15,12 @@ export interface RaycastHit {
 
 export function castRay(
   world: World,
-  ox: number, oy: number, oz: number,
-  dx: number, dy: number, dz: number,
+  ox: number,
+  oy: number,
+  oz: number,
+  dx: number,
+  dy: number,
+  dz: number,
   maxDist: number,
 ): RaycastHit | null {
   let x = Math.floor(ox);
@@ -31,11 +35,13 @@ export function castRay(
   const tDeltaY = dy !== 0 ? Math.abs(1 / dy) : Infinity;
   const tDeltaZ = dz !== 0 ? Math.abs(1 / dz) : Infinity;
 
-  let tMaxX = dx !== 0 ? ((dx > 0 ? x + 1 - ox : ox - x) / Math.abs(dx)) : Infinity;
-  let tMaxY = dy !== 0 ? ((dy > 0 ? y + 1 - oy : oy - y) / Math.abs(dy)) : Infinity;
-  let tMaxZ = dz !== 0 ? ((dz > 0 ? z + 1 - oz : oz - z) / Math.abs(dz)) : Infinity;
+  let tMaxX = dx !== 0 ? (dx > 0 ? x + 1 - ox : ox - x) / Math.abs(dx) : Infinity;
+  let tMaxY = dy !== 0 ? (dy > 0 ? y + 1 - oy : oy - y) / Math.abs(dy) : Infinity;
+  let tMaxZ = dz !== 0 ? (dz > 0 ? z + 1 - oz : oz - z) / Math.abs(dz) : Infinity;
 
-  let normalX = 0, normalY = 0, normalZ = 0;
+  let normalX = 0,
+    normalY = 0,
+    normalZ = 0;
   let t = 0;
 
   for (let i = 0; i < maxDist * 3; i++) {
@@ -49,13 +55,17 @@ export function castRay(
         if (t > maxDist) return null;
         x += stepX;
         tMaxX += tDeltaX;
-        normalX = -stepX; normalY = 0; normalZ = 0;
+        normalX = -stepX;
+        normalY = 0;
+        normalZ = 0;
       } else {
         t = tMaxZ;
         if (t > maxDist) return null;
         z += stepZ;
         tMaxZ += tDeltaZ;
-        normalX = 0; normalY = 0; normalZ = -stepZ;
+        normalX = 0;
+        normalY = 0;
+        normalZ = -stepZ;
       }
     } else {
       if (tMaxY < tMaxZ) {
@@ -63,13 +73,17 @@ export function castRay(
         if (t > maxDist) return null;
         y += stepY;
         tMaxY += tDeltaY;
-        normalX = 0; normalY = -stepY; normalZ = 0;
+        normalX = 0;
+        normalY = -stepY;
+        normalZ = 0;
       } else {
         t = tMaxZ;
         if (t > maxDist) return null;
         z += stepZ;
         tMaxZ += tDeltaZ;
-        normalX = 0; normalY = 0; normalZ = -stepZ;
+        normalX = 0;
+        normalY = 0;
+        normalZ = -stepZ;
       }
     }
   }
@@ -79,7 +93,10 @@ export function castRay(
 export class BlockInteraction {
   private highlightMesh: THREE.LineSegments;
 
-  constructor(private world: World, scene: THREE.Scene) {
+  constructor(
+    private world: World,
+    scene: THREE.Scene,
+  ) {
     const geo = new THREE.BoxGeometry(1.001, 1.001, 1.001);
     const edges = new THREE.EdgesGeometry(geo);
     this.highlightMesh = new THREE.LineSegments(
@@ -91,8 +108,12 @@ export class BlockInteraction {
   }
 
   update(
-    eyeX: number, eyeY: number, eyeZ: number,
-    dirX: number, dirY: number, dirZ: number,
+    eyeX: number,
+    eyeY: number,
+    eyeZ: number,
+    dirX: number,
+    dirY: number,
+    dirZ: number,
   ): RaycastHit | null {
     const hit = castRay(this.world, eyeX, eyeY, eyeZ, dirX, dirY, dirZ, 5);
     if (hit && isDestructible(this.world.getBlock(hit.blockX, hit.blockY, hit.blockZ))) {
@@ -119,9 +140,12 @@ export class BlockInteraction {
     const HALF_W = PLAYER_WIDTH / 2;
     const P_HEIGHT = PLAYER_HEIGHT;
     if (
-      px + 1 > playerX - HALF_W && px < playerX + HALF_W &&
-      py + 1 > playerY && py < playerY + P_HEIGHT &&
-      pz + 1 > playerZ - HALF_W && pz < playerZ + HALF_W
+      px + 1 > playerX - HALF_W &&
+      px < playerX + HALF_W &&
+      py + 1 > playerY &&
+      py < playerY + P_HEIGHT &&
+      pz + 1 > playerZ - HALF_W &&
+      pz < playerZ + HALF_W
     ) {
       return false;
     }

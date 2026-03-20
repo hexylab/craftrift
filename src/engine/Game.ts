@@ -21,11 +21,17 @@ import { ViewMode } from '../player/ViewMode';
 import { applyKnockback, KNOCKBACK_VERTICAL } from '../physics/Knockback';
 import { Entity } from '../entity/Entity';
 import { Minion } from '../entity/Minion';
-import { ATTACK_RANGE, ATTACK_DAMAGE, ATTACK_COOLDOWN } from '../entity/CombatSystem';
+import { ATTACK_RANGE, ATTACK_DAMAGE } from '../entity/CombatSystem';
 import { buildModel } from '../model/MobModel';
 import { SHEEP_MODEL, PLAYER_MODEL } from '../model/ModelDefinitions';
 import { WalkAnimator, AttackAnimator } from '../model/Animator';
-import { createDamageFlash, triggerFlash, updateFlash, applyFlashToMesh, DamageFlashState } from '../model/DamageFlash';
+import {
+  createDamageFlash,
+  triggerFlash,
+  updateFlash,
+  applyFlashToMesh,
+  DamageFlashState,
+} from '../model/DamageFlash';
 
 export class Game {
   private renderer!: Renderer;
@@ -82,7 +88,7 @@ export class Game {
       // 将来のインベントリドロップ拡張ポイント
     });
 
-    this.towerAIs = this.structures.map(s => new TowerAI(s));
+    this.towerAIs = this.structures.map((s) => new TowerAI(s));
     this.projectileManager = new ProjectileManager(this.renderer.scene);
     this.screenShake = new ScreenShake();
     // プレイヤーをProjectileTargetとして表すアダプターオブジェクト
@@ -129,10 +135,7 @@ export class Game {
     this.playerWalkAnimator = new WalkAnimator();
     this.playerAttackAnimator = new AttackAnimator();
 
-    this.player = new Player(
-      SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z,
-      this.world,
-    );
+    this.player = new Player(SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z, this.world);
 
     this.blockInteraction = new BlockInteraction(this.world, this.renderer.scene);
 
@@ -186,9 +189,7 @@ export class Game {
       this.player.z = SPAWN_POSITION.z;
       this.player.velocityY = 0;
       this.player.onGround = false;
-      this.renderer.fpsCamera.setPosition(
-        this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-      );
+      this.renderer.fpsCamera.setPosition(this.player.eyeX, this.player.eyeY, this.player.eyeZ);
       this.hud.hideDeathScreen();
     }
 
@@ -208,7 +209,9 @@ export class Game {
 
     // ミニオンウェーブ更新（プレイヤー情報を渡してRedミニオンがプレイヤーを攻撃可能に）
     this.minionWaveManager.update(dt, this.structures, this.world, {
-      x: this.player.x, y: this.player.y, z: this.player.z,
+      x: this.player.x,
+      y: this.player.y,
+      z: this.player.z,
       isAlive: this.playerState.isAlive,
     });
 
@@ -229,7 +232,7 @@ export class Game {
       if (cmd) {
         let target: ProjectileTarget;
         if (cmd.targetId) {
-          const minion = enemyMinions.find(m => m.id === cmd.targetId);
+          const minion = enemyMinions.find((m) => m.id === cmd.targetId);
           target = minion ?? this.playerTarget;
         } else {
           target = this.playerTarget;
@@ -245,7 +248,7 @@ export class Game {
       const dummyPlayer: ProjectileTarget = { x: 0, y: -999, z: 0, isAlive: false };
       const cmd = ai.update(dt, dummyPlayer, enemyMinions);
       if (cmd && cmd.targetId) {
-        const minion = enemyMinions.find(m => m.id === cmd.targetId);
+        const minion = enemyMinions.find((m) => m.id === cmd.targetId);
         if (minion) this.projectileManager.spawn(cmd, minion);
       }
     }
@@ -260,12 +263,16 @@ export class Game {
           triggerFlash(this.playerFlash);
           this.screenShake.trigger();
           this.hud.triggerDamageFlash();
-          const tower = this.towerAIs.find(ai => ai.structure.team === hit.team);
+          const tower = this.towerAIs.find((ai) => ai.structure.team === hit.team);
           if (tower) {
             applyKnockback(
               this.player.knockback,
-              tower.getCenterX(), tower.getCenterY(), tower.getCenterZ(),
-              this.player.x, this.player.y, this.player.z,
+              tower.getCenterX(),
+              tower.getCenterY(),
+              tower.getCenterZ(),
+              this.player.x,
+              this.player.y,
+              this.player.z,
             );
             this.player.velocityY += KNOCKBACK_VERTICAL;
           }
@@ -277,12 +284,16 @@ export class Game {
           minion.takeDamage(hit.damage);
           const kb = this.minionWaveManager.getKnockback(minion.id);
           if (kb) {
-            const tower = this.towerAIs.find(ai => ai.structure.team === hit.team);
+            const tower = this.towerAIs.find((ai) => ai.structure.team === hit.team);
             if (tower) {
               applyKnockback(
                 kb,
-                tower.getCenterX(), tower.getCenterY(), tower.getCenterZ(),
-                minion.x, minion.y, minion.z,
+                tower.getCenterX(),
+                tower.getCenterY(),
+                tower.getCenterZ(),
+                minion.x,
+                minion.y,
+                minion.z,
               );
             }
           }
@@ -306,7 +317,10 @@ export class Game {
 
     // タワー警告HUD
     const inTowerRange = this.towerAIs.some(
-      ai => ai.structure.team !== 'blue' && ai.structure.isAlive && ai.isInRange(this.player.x, this.player.y, this.player.z),
+      (ai) =>
+        ai.structure.team !== 'blue' &&
+        ai.structure.isAlive &&
+        ai.isInRange(this.player.x, this.player.y, this.player.z),
     );
     if (inTowerRange) {
       this.hud.showTowerWarning();
@@ -346,11 +360,24 @@ export class Game {
     // WASD移動
     const forward = this.renderer.fpsCamera.getForward();
     const right = this.renderer.fpsCamera.getRight();
-    let moveX = 0, moveZ = 0;
-    if (this.input.isKeyDown('KeyW')) { moveX += forward.x; moveZ += forward.z; }
-    if (this.input.isKeyDown('KeyS')) { moveX -= forward.x; moveZ -= forward.z; }
-    if (this.input.isKeyDown('KeyA')) { moveX -= right.x; moveZ -= right.z; }
-    if (this.input.isKeyDown('KeyD')) { moveX += right.x; moveZ += right.z; }
+    let moveX = 0,
+      moveZ = 0;
+    if (this.input.isKeyDown('KeyW')) {
+      moveX += forward.x;
+      moveZ += forward.z;
+    }
+    if (this.input.isKeyDown('KeyS')) {
+      moveX -= forward.x;
+      moveZ -= forward.z;
+    }
+    if (this.input.isKeyDown('KeyA')) {
+      moveX -= right.x;
+      moveZ -= right.z;
+    }
+    if (this.input.isKeyDown('KeyD')) {
+      moveX += right.x;
+      moveZ += right.z;
+    }
 
     if (moveX !== 0 || moveZ !== 0) {
       const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
@@ -358,7 +385,7 @@ export class Game {
     }
 
     // 歩行アニメーション
-    const isMoving = (moveX !== 0 || moveZ !== 0);
+    const isMoving = moveX !== 0 || moveZ !== 0;
     const walkAngles = this.playerWalkAnimator.update(dt, isMoving, 4.3);
 
     const applyAngles = (model: THREE.Group, angles: typeof walkAngles) => {
@@ -389,20 +416,32 @@ export class Game {
     const dir = this.getTargetDirection();
 
     const targetStructure = this.combatSystem.findTarget(
-      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-      dir.x, dir.y, dir.z,
+      this.player.eyeX,
+      this.player.eyeY,
+      this.player.eyeZ,
+      dir.x,
+      dir.y,
+      dir.z,
       this.structures,
     );
 
     const blockHit = this.blockInteraction.update(
-      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-      dir.x, dir.y, dir.z,
+      this.player.eyeX,
+      this.player.eyeY,
+      this.player.eyeZ,
+      dir.x,
+      dir.y,
+      dir.z,
     );
 
     // ミニオンのレイキャスト判定（球体近似）
     const targetMinion = this.findMinionTarget(
-      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
-      dir.x, dir.y, dir.z,
+      this.player.eyeX,
+      this.player.eyeY,
+      this.player.eyeZ,
+      dir.x,
+      dir.y,
+      dir.z,
     );
 
     const leftClick = this.input.consumeLeftClick();
@@ -452,7 +491,9 @@ export class Game {
 
     if (this.input.consumeRightClick()) {
       if (blockHit) {
-        if (this.blockInteraction.placeBlock(blockHit, this.player.x, this.player.y, this.player.z)) {
+        if (
+          this.blockInteraction.placeBlock(blockHit, this.player.x, this.player.y, this.player.z)
+        ) {
           this.rebuildDirtyChunks();
         }
       }
@@ -516,8 +557,12 @@ export class Game {
 
   /** レイとミニオン（球体近似 半径0.5）の交差判定 */
   private findMinionTarget(
-    ox: number, oy: number, oz: number,
-    dx: number, dy: number, dz: number,
+    ox: number,
+    oy: number,
+    oz: number,
+    dx: number,
+    dy: number,
+    dz: number,
   ): Minion | null {
     let closest: Minion | null = null;
     let closestT = Infinity;
@@ -530,7 +575,9 @@ export class Game {
 
       const radius = 0.5;
       const centerY = m.y + 0.5; // ミニオン中心
-      const ex = m.x - ox, ey = centerY - oy, ez = m.z - oz;
+      const ex = m.x - ox,
+        ey = centerY - oy,
+        ez = m.z - oz;
       const b = ex * dx + ey * dy + ez * dz;
       const c = ex * ex + ey * ey + ez * ez - radius * radius;
       const disc = b * b - c;
@@ -545,7 +592,7 @@ export class Game {
   }
 
   private checkVictory(): void {
-    const redNexus = this.structures.find(s => s.id === 'red-nexus');
+    const redNexus = this.structures.find((s) => s.id === 'red-nexus');
     if (redNexus && !redNexus.isAlive) {
       this.gameOver = true;
       this.hud.hideTarget();
@@ -579,9 +626,8 @@ export class Game {
       old.geometry.dispose();
     }
 
-    const data = buildChunkGeometryData(
-      cx, cy, cz,
-      (wx, wy, wz) => this.world.getBlock(wx, wy, wz),
+    const data = buildChunkGeometryData(cx, cy, cz, (wx, wy, wz) =>
+      this.world.getBlock(wx, wy, wz),
     );
 
     if (data.positions.length === 0) {

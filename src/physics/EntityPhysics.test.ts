@@ -12,12 +12,10 @@ import {
 import { KnockbackState } from './Knockback';
 
 // テスト用 WorldLike: すべて空気
-const emptyWorld = { getBlock: (_x: number, _y: number, _z: number) => 0 };
+const emptyWorld = { getBlock: () => 0 };
 
 // 指定座標のブロックのみ固体なWorldLikeを生成
-function worldWithBlocks(
-  blocks: Array<{ x: number; y: number; z: number }>,
-) {
+function worldWithBlocks(blocks: Array<{ x: number; y: number; z: number }>) {
   return {
     getBlock(bx: number, by: number, bz: number): number {
       for (const b of blocks) {

@@ -17,9 +17,7 @@ export class FPSCamera {
     this.yaw -= deltaX * SENSITIVITY;
     this.pitch -= deltaY * SENSITIVITY;
     this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch));
-    this.camera.quaternion.setFromEuler(
-      new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'),
-    );
+    this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
   }
 
   setPosition(x: number, y: number, z: number): void {

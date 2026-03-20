@@ -3,11 +3,21 @@ import { Structure } from './Structure';
 import { World } from '../world/World';
 import { BlockType } from '../world/Block';
 
-function createTower(id: string, team: 'blue' | 'red', z: number, protectedBy: Structure | null = null): Structure {
+function createTower(
+  id: string,
+  team: 'blue' | 'red',
+  z: number,
+  protectedBy: Structure | null = null,
+): Structure {
   return new Structure(id, team, 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.RED_TOWER, protectedBy);
 }
 
-function createNexus(id: string, team: 'blue' | 'red', z: number, protectedBy: Structure | null = null): Structure {
+function createNexus(
+  id: string,
+  team: 'blue' | 'red',
+  z: number,
+  protectedBy: Structure | null = null,
+): Structure {
   return new Structure(id, team, 7, 4, z, 'nexus', 3000, 5, 4, 5, BlockType.RED_NEXUS, protectedBy);
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ScreenShake, SCREEN_SHAKE_INTENSITY, SCREEN_SHAKE_DURATION } from './ScreenShake';
+import { ScreenShake, SCREEN_SHAKE_DURATION } from './ScreenShake';
 
 describe('ScreenShake', () => {
   it('initial state returns zero offsets', () => {

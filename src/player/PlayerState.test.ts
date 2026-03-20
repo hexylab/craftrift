@@ -103,7 +103,9 @@ describe('PlayerState', () => {
     it('onDeath callback is called on death', () => {
       const ps = new PlayerState();
       let called = false;
-      ps.onDeath(() => { called = true; });
+      ps.onDeath(() => {
+        called = true;
+      });
       ps.takeDamage(500);
       expect(called).toBe(true);
     });
@@ -111,7 +113,9 @@ describe('PlayerState', () => {
     it('onDeath callback is not called on non-lethal damage', () => {
       const ps = new PlayerState();
       let called = false;
-      ps.onDeath(() => { called = true; });
+      ps.onDeath(() => {
+        called = true;
+      });
       ps.takeDamage(50);
       expect(called).toBe(false);
     });

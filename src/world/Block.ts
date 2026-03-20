@@ -15,12 +15,14 @@ export function isSolid(type: BlockType): boolean {
 }
 
 export function isDestructible(type: BlockType): boolean {
-  return type !== BlockType.AIR
-    && type !== BlockType.BEDROCK
-    && type !== BlockType.BLUE_TOWER
-    && type !== BlockType.RED_TOWER
-    && type !== BlockType.BLUE_NEXUS
-    && type !== BlockType.RED_NEXUS;
+  return (
+    type !== BlockType.AIR &&
+    type !== BlockType.BEDROCK &&
+    type !== BlockType.BLUE_TOWER &&
+    type !== BlockType.RED_TOWER &&
+    type !== BlockType.BLUE_NEXUS &&
+    type !== BlockType.RED_NEXUS
+  );
 }
 
 interface BlockUVs {

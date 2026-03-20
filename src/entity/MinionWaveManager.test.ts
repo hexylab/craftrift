@@ -1,11 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
-import { MinionWaveManager, WAVE_INTERVAL, WAVE_SIZE, SPAWN_STAGGER, FIRST_WAVE_DELAY, WorldLike } from './MinionWaveManager';
+import {
+  MinionWaveManager,
+  WAVE_INTERVAL,
+  WAVE_SIZE,
+  SPAWN_STAGGER,
+  FIRST_WAVE_DELAY,
+  WorldLike,
+} from './MinionWaveManager';
 import * as THREE from 'three';
 import { PlayerInfo } from './MinionAI';
 
 /** y<=3 が地面（固体）、それ以外は空気 */
 const mockWorld: WorldLike = {
-  getBlock: (_x: number, y: number, _z: number) => {
+  getBlock: (_x: number, y: number, _z: number): unknown => {
     if (y <= 3) return 1; // ground
     return null;
   },
@@ -167,7 +174,7 @@ describe('DamageFlash integration', () => {
     // After cleanup, triggerMinionFlash should be a no-op (no throw)
     expect(() => manager.triggerMinionFlash(id)).not.toThrow();
     // Minion should be removed from getAllMinions
-    expect(manager.getAllMinions().find(m => m.id === id)).toBeUndefined();
+    expect(manager.getAllMinions().find((m) => m.id === id)).toBeUndefined();
   });
 });
 
@@ -212,9 +219,6 @@ describe('Player-Minion collision', () => {
       manager.update(0.05, [], mockWorld);
     }
 
-    const xBefore = minion.x;
-    const zBefore = minion.z;
-
     // Player is far above (Y difference > 1.0)
     const playerInfo: PlayerInfo = {
       x: minion.x,
@@ -244,9 +248,6 @@ describe('Player-Minion collision', () => {
       manager.update(0.05, [], mockWorld);
     }
 
-    const xBefore = minion.x;
-    const zBefore = minion.z;
-
     // Dead player at same position
     const playerInfo: PlayerInfo = {
       x: minion.x,
@@ -254,10 +255,6 @@ describe('Player-Minion collision', () => {
       z: minion.z,
       isAlive: false,
     };
-
-    // Snapshot position before
-    const snapX = minion.x;
-    const snapZ = minion.z;
 
     manager.update(0.016, [], mockWorld, playerInfo);
 

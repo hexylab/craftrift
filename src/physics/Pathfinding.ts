@@ -10,7 +10,7 @@ export const LANE_Z_MIN = 2;
 export const LANE_Z_MAX = 207;
 
 /** グリッドセルサイズ（1ブロック=1セル） */
-const CELL_SIZE = 1;
+// Grid resolution: 1 block = 1 cell
 
 interface Node {
   x: number;
@@ -49,8 +49,10 @@ export function buildObstacleMap(structures: Structure[]): Set<string> {
  * @returns ウェイポイント配列（start除外、goal含む）。到達不可能な場合は空配列。
  */
 export function findPath(
-  startX: number, startZ: number,
-  goalX: number, goalZ: number,
+  startX: number,
+  startZ: number,
+  goalX: number,
+  goalZ: number,
   blocked: Set<string>,
 ): { x: number; z: number }[] {
   const sx = Math.round(startX);
@@ -85,7 +87,8 @@ export function findPath(
   const closed = new Set<string>();
 
   const startNode: Node = {
-    x: sx, z: sz,
+    x: sx,
+    z: sz,
     g: 0,
     h: heuristic(sx, sz, finalGX, finalGZ),
     f: 0,
@@ -96,13 +99,16 @@ export function findPath(
 
   // 8方向移動（直線+斜め）
   const dirs = [
-    [0, 1], [0, -1], [1, 0], [-1, 0],
-    [1, 1], [1, -1], [-1, 1], [-1, -1],
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
   ];
-  const costs = [
-    1, 1, 1, 1,
-    1.414, 1.414, 1.414, 1.414,
-  ];
+  const costs = [1, 1, 1, 1, 1.414, 1.414, 1.414, 1.414];
 
   let iterations = 0;
   const MAX_ITERATIONS = 5000; // パフォーマンス制限（ARAMレーン210ブロック対応）
@@ -145,8 +151,11 @@ export function findPath(
       if (i >= 4) {
         const dx = dirs[i][0];
         const dz = dirs[i][1];
-        if (blocked.has(`${current.x + dx},${current.z}`) ||
-            blocked.has(`${current.x},${current.z + dz}`)) continue;
+        if (
+          blocked.has(`${current.x + dx},${current.z}`) ||
+          blocked.has(`${current.x},${current.z + dz}`)
+        )
+          continue;
       }
 
       const g = current.g + costs[i];

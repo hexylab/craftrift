@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { KnockbackState, applyKnockback, updateKnockback, createKnockbackState,
-  KNOCKBACK_HORIZONTAL, KNOCKBACK_VERTICAL } from './Knockback';
+import {
+  KnockbackState,
+  applyKnockback,
+  updateKnockback,
+  createKnockbackState,
+  KNOCKBACK_HORIZONTAL,
+  KNOCKBACK_VERTICAL,
+} from './Knockback';
 
 describe('KnockbackState', () => {
   it('only has vx and vz fields', () => {

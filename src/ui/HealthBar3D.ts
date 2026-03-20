@@ -15,9 +15,17 @@ function createBarTexture(): THREE.DataTexture {
   return texture;
 }
 
-function writePixel(data: Uint8Array, x: number, y: number, r: number, g: number, b: number, a = 255): void {
+function writePixel(
+  data: Uint8Array,
+  x: number,
+  y: number,
+  r: number,
+  g: number,
+  b: number,
+  a = 255,
+): void {
   const idx = (y * BAR_WIDTH + x) * 4;
-  data[idx]     = r;
+  data[idx] = r;
   data[idx + 1] = g;
   data[idx + 2] = b;
   data[idx + 3] = a;
@@ -30,11 +38,17 @@ function redrawBar(texture: THREE.DataTexture, ratio: number): void {
   // 色の決定: 緑 → 黄 → 赤
   let fr: number, fg: number, fb: number;
   if (ratio > 0.5) {
-    fr = 0x44; fg = 0xbb; fb = 0x44;   // 緑
+    fr = 0x44;
+    fg = 0xbb;
+    fb = 0x44; // 緑
   } else if (ratio > 0.25) {
-    fr = 0xdd; fg = 0xbb; fb = 0x22;   // 黄
+    fr = 0xdd;
+    fg = 0xbb;
+    fb = 0x22; // 黄
   } else {
-    fr = 0xdd; fg = 0x33; fb = 0x33;   // 赤
+    fr = 0xdd;
+    fg = 0x33;
+    fb = 0x33; // 赤
   }
 
   for (let y = 0; y < BAR_HEIGHT; y++) {

@@ -10,8 +10,8 @@ export class Minion extends Entity {
   attackTimer = 0;
 
   // EntityBody fields for EntityPhysics integration
-  readonly width = 0.8;   // slightly larger than player (0.6)
-  readonly height = 1.0;  // sheep height
+  readonly width = 0.8; // slightly larger than player (0.6)
+  readonly height = 1.0; // sheep height
   velocityY = 0;
   onGround = false;
 

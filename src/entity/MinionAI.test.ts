@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { Minion, MINION_ATTACK_RANGE, MINION_MOVE_SPEED, MINION_ATTACK_INTERVAL, MINION_DAMAGE } from './Minion';
+import {
+  Minion,
+  MINION_ATTACK_RANGE,
+  MINION_MOVE_SPEED,
+  MINION_ATTACK_INTERVAL,
+  MINION_DAMAGE,
+} from './Minion';
 import { MinionAI, LANE_CENTER_X, DETECTION_RANGE, LEASH_RANGE } from './MinionAI';
 import { Structure } from './Structure';
 import { BlockType } from '../world/Block';
@@ -303,7 +309,13 @@ describe('MinionAI State Machine', () => {
     it('prioritizes enemy attacking self over nearest', () => {
       const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
       // attackerは少し遠いがDETECTION_RANGE内
-      const redAttacker = makeMinion('red-attacker', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
+      const redAttacker = makeMinion(
+        'red-attacker',
+        'red',
+        LANE_CENTER_X,
+        0,
+        50 + DETECTION_RANGE - 1,
+      );
       // nearはもっと近い
       const redNear = makeMinion('red-near', 'red', LANE_CENTER_X, 0, 50 + 2);
       const ai = new MinionAI(blue);

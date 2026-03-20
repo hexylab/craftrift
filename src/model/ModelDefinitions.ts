@@ -12,9 +12,9 @@ export interface SkinRegion {
 /** 1パーツの定義 */
 export interface PartDefinition {
   name: string;
-  size: [number, number, number];    // [w, h, d] ピクセル単位
-  pivot: [number, number, number];   // 回転軸の位置（ピクセル単位、Three.js座標系）
-  offset: [number, number, number];  // ピボットからのメッシュ中心オフセット（ピクセル単位、Three.js座標系）
+  size: [number, number, number]; // [w, h, d] ピクセル単位
+  pivot: [number, number, number]; // 回転軸の位置（ピクセル単位、Three.js座標系）
+  offset: [number, number, number]; // ピボットからのメッシュ中心オフセット（ピクセル単位、Three.js座標系）
   skinRegion: SkinRegion;
   /** パーツの初期回転 [rx, ry, rz] ラジアン（例: 体のX軸90度回転） */
   initialRotation?: [number, number, number];
@@ -39,12 +39,48 @@ export const PLAYER_MODEL: ModelDefinition = {
   forwardAngle: 0,
   parts: [
     // anchor='bottom' → offset=[0, h/2, 0], anchor='top'(default) → offset=[0, -h/2, 0]
-    { name: 'head',     size: [8, 8, 8],   pivot: [0, 24, 0],   offset: [0, 4, 0],   skinRegion: { originX: 0,  originY: 0,  w: 8, h: 8, d: 8 } },
-    { name: 'body',     size: [8, 12, 4],  pivot: [0, 12, 0],   offset: [0, 6, 0],   skinRegion: { originX: 16, originY: 16, w: 8, h: 12, d: 4 } },
-    { name: 'rightArm', size: [4, 12, 4],  pivot: [-6, 24, 0],  offset: [0, -6, 0],  skinRegion: { originX: 40, originY: 16, w: 4, h: 12, d: 4 } },
-    { name: 'leftArm',  size: [4, 12, 4],  pivot: [6, 24, 0],   offset: [0, -6, 0],  skinRegion: { originX: 32, originY: 48, w: 4, h: 12, d: 4 } },
-    { name: 'rightLeg', size: [4, 12, 4],  pivot: [-2, 12, 0],  offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
-    { name: 'leftLeg',  size: [4, 12, 4],  pivot: [2, 12, 0],   offset: [0, -6, 0],  skinRegion: { originX: 16, originY: 48, w: 4, h: 12, d: 4 } },
+    {
+      name: 'head',
+      size: [8, 8, 8],
+      pivot: [0, 24, 0],
+      offset: [0, 4, 0],
+      skinRegion: { originX: 0, originY: 0, w: 8, h: 8, d: 8 },
+    },
+    {
+      name: 'body',
+      size: [8, 12, 4],
+      pivot: [0, 12, 0],
+      offset: [0, 6, 0],
+      skinRegion: { originX: 16, originY: 16, w: 8, h: 12, d: 4 },
+    },
+    {
+      name: 'rightArm',
+      size: [4, 12, 4],
+      pivot: [-6, 24, 0],
+      offset: [0, -6, 0],
+      skinRegion: { originX: 40, originY: 16, w: 4, h: 12, d: 4 },
+    },
+    {
+      name: 'leftArm',
+      size: [4, 12, 4],
+      pivot: [6, 24, 0],
+      offset: [0, -6, 0],
+      skinRegion: { originX: 32, originY: 48, w: 4, h: 12, d: 4 },
+    },
+    {
+      name: 'rightLeg',
+      size: [4, 12, 4],
+      pivot: [-2, 12, 0],
+      offset: [0, -6, 0],
+      skinRegion: { originX: 0, originY: 16, w: 4, h: 12, d: 4 },
+    },
+    {
+      name: 'leftLeg',
+      size: [4, 12, 4],
+      pivot: [2, 12, 0],
+      offset: [0, -6, 0],
+      skinRegion: { originX: 16, originY: 48, w: 4, h: 12, d: 4 },
+    },
   ],
 };
 
@@ -92,16 +128,53 @@ export const SHEEP_MODEL: ModelDefinition = {
     // Head: ModelSheep1 addBox(-3,-4,-4, 6,6,6, 0.6) → 実効 7.2×7.2×7.2
     // rotationPoint(0,6,-8) → pivot(0, 18, 8)
     // mcCenter=(0,-1,-1) → offset(0, 1, 1)
-    { name: 'head',          size: [7.2, 7.2, 7.2], pivot: [0, 18, 8],   offset: [0, 1, 1],    skinRegion: { originX: 0,  originY: 0,  w: 6, h: 6, d: 8 } },
+    {
+      name: 'head',
+      size: [7.2, 7.2, 7.2],
+      pivot: [0, 18, 8],
+      offset: [0, 1, 1],
+      skinRegion: { originX: 0, originY: 0, w: 6, h: 6, d: 8 },
+    },
     // Body: ModelSheep1 addBox(-4,-10,-7, 8,16,6, 1.75) → 実効 11.5×19.5×9.5
     // rotationPoint(0,5,2) → pivot(0, 19, -2), rotX → -PI/2
     // mcCenter=(0,-2,-4) → worldOffset(0,2,4) → local(0,-4,2)
-    { name: 'body',          size: [11.5, 19.5, 9.5], pivot: [0, 19, -2],  offset: [0, -1, -2],  skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
+    {
+      name: 'body',
+      size: [11.5, 19.5, 9.5],
+      pivot: [0, 19, -2],
+      offset: [0, -1, -2],
+      skinRegion: { originX: 28, originY: 8, w: 8, h: 16, d: 6 },
+      initialRotation: [-Math.PI / 2, 0, 0],
+    },
     // Legs: ModelSheep1 addBox(-2,0,-2, 4,6,4, 0.5) → 実効 5×7×5
     // mcCenter=(0,3,0) → offset(0,-3,0)
-    { name: 'rightFrontLeg', size: [5, 7, 5],   pivot: [-3, 12, 5],  offset: [0, -3, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
-    { name: 'leftFrontLeg',  size: [5, 7, 5],   pivot: [3, 12, 5],   offset: [0, -3, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
-    { name: 'rightBackLeg',  size: [5, 7, 5],   pivot: [-3, 12, -7], offset: [0, -3, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
-    { name: 'leftBackLeg',   size: [5, 7, 5],   pivot: [3, 12, -7],  offset: [0, -3, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    {
+      name: 'rightFrontLeg',
+      size: [5, 7, 5],
+      pivot: [-3, 12, 5],
+      offset: [0, -3, 0],
+      skinRegion: { originX: 0, originY: 16, w: 4, h: 12, d: 4 },
+    },
+    {
+      name: 'leftFrontLeg',
+      size: [5, 7, 5],
+      pivot: [3, 12, 5],
+      offset: [0, -3, 0],
+      skinRegion: { originX: 0, originY: 16, w: 4, h: 12, d: 4 },
+    },
+    {
+      name: 'rightBackLeg',
+      size: [5, 7, 5],
+      pivot: [-3, 12, -7],
+      offset: [0, -3, 0],
+      skinRegion: { originX: 0, originY: 16, w: 4, h: 12, d: 4 },
+    },
+    {
+      name: 'leftBackLeg',
+      size: [5, 7, 5],
+      pivot: [3, 12, -7],
+      offset: [0, -3, 0],
+      skinRegion: { originX: 0, originY: 16, w: 4, h: 12, d: 4 },
+    },
   ],
 };

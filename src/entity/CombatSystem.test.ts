@@ -1,14 +1,40 @@
 import { describe, it, expect } from 'vitest';
-import { CombatSystem, ATTACK_DAMAGE, ATTACK_COOLDOWN, ATTACK_RANGE } from './CombatSystem';
+import { CombatSystem, ATTACK_DAMAGE, ATTACK_COOLDOWN } from './CombatSystem';
 import { Structure } from './Structure';
 import { BlockType } from '../world/Block';
 
 function createRedTower(z: number, protectedBy: Structure | null = null): Structure {
-  return new Structure('red-t', 'red', 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.RED_TOWER, protectedBy);
+  return new Structure(
+    'red-t',
+    'red',
+    8,
+    4,
+    z,
+    'tower',
+    1500,
+    3,
+    6,
+    3,
+    BlockType.RED_TOWER,
+    protectedBy,
+  );
 }
 
 function createBlueTower(z: number): Structure {
-  return new Structure('blue-t', 'blue', 8, 4, z, 'tower', 1500, 3, 6, 3, BlockType.RED_TOWER, null);
+  return new Structure(
+    'blue-t',
+    'blue',
+    8,
+    4,
+    z,
+    'tower',
+    1500,
+    3,
+    6,
+    3,
+    BlockType.RED_TOWER,
+    null,
+  );
 }
 
 describe('CombatSystem', () => {
@@ -63,7 +89,20 @@ describe('CombatSystem', () => {
 
     it('returns destroyed=true when target dies', () => {
       const cs = new CombatSystem();
-      const target = new Structure('t', 'red', 8, 4, 10, 'tower', ATTACK_DAMAGE, 3, 6, 3, BlockType.RED_TOWER, null);
+      const target = new Structure(
+        't',
+        'red',
+        8,
+        4,
+        10,
+        'tower',
+        ATTACK_DAMAGE,
+        3,
+        6,
+        3,
+        BlockType.RED_TOWER,
+        null,
+      );
       const result = cs.tryAttack(target, 1.0);
       expect(result.hit).toBe(true);
       if (result.hit) {
@@ -93,9 +132,9 @@ describe('CombatSystem', () => {
       const cs = new CombatSystem();
       const far = createRedTower(14);
       far.protectedBy = null;
-      (far as any).id = 'far';
+      (far as unknown as { id: string }).id = 'far';
       const near = createRedTower(10);
-      (near as any).id = 'near';
+      (near as unknown as { id: string }).id = 'near';
       const result = cs.findTarget(9.5, 7, 9, 0, 0, 1, [far, near]);
       expect(result?.id).toBe('near');
     });

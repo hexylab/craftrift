@@ -22,10 +22,7 @@ export interface AttackFailed {
 export class CombatSystem {
   private lastAttackTime = 0;
 
-  tryAttack(
-    target: Structure | null,
-    time: number,
-  ): AttackResult | AttackFailed {
+  tryAttack(target: Structure | null, time: number): AttackResult | AttackFailed {
     if (time - this.lastAttackTime < ATTACK_COOLDOWN) {
       return { hit: false, reason: 'cooldown', target: null };
     }
@@ -49,8 +46,12 @@ export class CombatSystem {
   }
 
   findTarget(
-    eyeX: number, eyeY: number, eyeZ: number,
-    dirX: number, dirY: number, dirZ: number,
+    eyeX: number,
+    eyeY: number,
+    eyeZ: number,
+    dirX: number,
+    dirY: number,
+    dirZ: number,
     structures: Structure[],
   ): Structure | null {
     let closest: Structure | null = null;
@@ -60,10 +61,18 @@ export class CombatSystem {
       if (!s.isAlive || s.team === 'blue') continue;
 
       const t = this.rayIntersectsAABB(
-        eyeX, eyeY, eyeZ,
-        dirX, dirY, dirZ,
-        s.x, s.y, s.z,
-        s.x + s.width, s.y + s.height, s.z + s.depth,
+        eyeX,
+        eyeY,
+        eyeZ,
+        dirX,
+        dirY,
+        dirZ,
+        s.x,
+        s.y,
+        s.z,
+        s.x + s.width,
+        s.y + s.height,
+        s.z + s.depth,
       );
 
       if (t !== null && t > 0 && t <= ATTACK_RANGE && t < closestT) {
@@ -76,10 +85,18 @@ export class CombatSystem {
   }
 
   private rayIntersectsAABB(
-    ox: number, oy: number, oz: number,
-    dx: number, dy: number, dz: number,
-    minX: number, minY: number, minZ: number,
-    maxX: number, maxY: number, maxZ: number,
+    ox: number,
+    oy: number,
+    oz: number,
+    dx: number,
+    dy: number,
+    dz: number,
+    minX: number,
+    minY: number,
+    minZ: number,
+    maxX: number,
+    maxY: number,
+    maxZ: number,
   ): number | null {
     let tmin = -Infinity;
     let tmax = Infinity;

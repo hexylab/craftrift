@@ -5,7 +5,20 @@ import { BlockType } from '../world/Block';
 import { Minion } from './Minion';
 
 function makeTower(team: 'blue' | 'red' = 'red', x = 8, y = 4, z = 136): Structure {
-  return new Structure('test-tower', team, x, y, z, 'tower', 1500, 3, 6, 3, BlockType.RED_TOWER, null);
+  return new Structure(
+    'test-tower',
+    team,
+    x,
+    y,
+    z,
+    'tower',
+    1500,
+    3,
+    6,
+    3,
+    BlockType.RED_TOWER,
+    null,
+  );
 }
 
 function makeMinion(id: string, team: 'blue' | 'red', x: number, y: number, z: number): Minion {
@@ -39,7 +52,11 @@ describe('TowerAI', () => {
   it('fires after attack interval when in range', () => {
     const ai = new TowerAI(makeTower());
     const targetZ = 137.5 + 5;
-    const result1 = ai.update(TOWER_ATTACK_INTERVAL - 0.01, { x: 9.5, y: 7, z: targetZ, isAlive: true }, []);
+    const result1 = ai.update(
+      TOWER_ATTACK_INTERVAL - 0.01,
+      { x: 9.5, y: 7, z: targetZ, isAlive: true },
+      [],
+    );
     expect(result1).toBeNull();
     const result2 = ai.update(0.02, { x: 9.5, y: 7, z: targetZ, isAlive: true }, []);
     expect(result2).not.toBeNull();
@@ -53,7 +70,11 @@ describe('TowerAI', () => {
   it('returns null when target out of range', () => {
     const ai = new TowerAI(makeTower());
     const farZ = 137.5 + TOWER_ATTACK_RANGE + 10;
-    const result = ai.update(TOWER_ATTACK_INTERVAL + 1, { x: 9.5, y: 7, z: farZ, isAlive: true }, []);
+    const result = ai.update(
+      TOWER_ATTACK_INTERVAL + 1,
+      { x: 9.5, y: 7, z: farZ, isAlive: true },
+      [],
+    );
     expect(result).toBeNull();
   });
 
@@ -62,13 +83,21 @@ describe('TowerAI', () => {
     tower.hp = 0;
     tower.isAlive = false;
     const ai = new TowerAI(tower);
-    const result = ai.update(TOWER_ATTACK_INTERVAL + 1, { x: 9.5, y: 7, z: 137.5, isAlive: true }, []);
+    const result = ai.update(
+      TOWER_ATTACK_INTERVAL + 1,
+      { x: 9.5, y: 7, z: 137.5, isAlive: true },
+      [],
+    );
     expect(result).toBeNull();
   });
 
   it('returns null when target is dead', () => {
     const ai = new TowerAI(makeTower());
-    const result = ai.update(TOWER_ATTACK_INTERVAL + 1, { x: 9.5, y: 7, z: 137.5 + 5, isAlive: false }, []);
+    const result = ai.update(
+      TOWER_ATTACK_INTERVAL + 1,
+      { x: 9.5, y: 7, z: 137.5 + 5, isAlive: false },
+      [],
+    );
     expect(result).toBeNull();
   });
 

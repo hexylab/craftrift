@@ -17,8 +17,12 @@ export class ProjectileManager {
 
   spawn(command: FireCommand, target: ProjectileTarget): void {
     const projectile = new Projectile(
-      command.originX, command.originY, command.originZ,
-      command.damage, command.team, target,
+      command.originX,
+      command.originY,
+      command.originZ,
+      command.damage,
+      command.team,
+      target,
     );
     this.projectiles.push(projectile);
 
@@ -45,7 +49,7 @@ export class ProjectileManager {
       }
     }
 
-    const dead = this.projectiles.filter(p => !p.alive);
+    const dead = this.projectiles.filter((p) => !p.alive);
     for (const p of dead) {
       const mesh = this.meshes.get(p);
       if (mesh) {
@@ -54,7 +58,7 @@ export class ProjectileManager {
         this.meshes.delete(p);
       }
     }
-    this.projectiles = this.projectiles.filter(p => p.alive);
+    this.projectiles = this.projectiles.filter((p) => p.alive);
 
     for (const p of this.projectiles) {
       const mesh = this.meshes.get(p);

@@ -25,7 +25,12 @@ export class Player implements EntityBody {
   onGround = false;
   knockback: KnockbackState = createKnockbackState();
 
-  constructor(x: number, y: number, z: number, private world: World) {
+  constructor(
+    x: number,
+    y: number,
+    z: number,
+    private world: World,
+  ) {
     this.x = x;
     this.y = y;
     this.z = z;
@@ -47,7 +52,13 @@ export class Player implements EntityBody {
     tryJump(this);
   }
 
-  get eyeX(): number { return this.x; }
-  get eyeY(): number { return this.y + PLAYER_EYE_HEIGHT; }
-  get eyeZ(): number { return this.z; }
+  get eyeX(): number {
+    return this.x;
+  }
+  get eyeY(): number {
+    return this.y + PLAYER_EYE_HEIGHT;
+  }
+  get eyeZ(): number {
+    return this.z;
+  }
 }
