@@ -2,6 +2,14 @@ import { Minion, MINION_ATTACK_RANGE, MINION_MOVE_SPEED, MINION_DAMAGE } from '.
 import { Structure } from './Structure';
 import { Entity } from './Entity';
 
+/** プレイヤー位置情報（MinionAIが攻撃判定に使う） */
+export interface PlayerInfo {
+  x: number;
+  y: number;
+  z: number;
+  isAlive: boolean;
+}
+
 export const LANE_CENTER_X = 9.0;
 export type MinionAIState = 'walking' | 'attacking' | 'returning';
 
@@ -23,6 +31,7 @@ export class MinionAI {
     allMinions: Minion[],
     structures: Structure[],
     attackingMeId?: string,
+    enemyPlayer?: PlayerInfo,
   ): MinionAIResult {
     if (!this.minion.isAlive) {
       return { state: 'walking', moveX: 0, moveZ: 0, targetId: null, damage: 0 };
@@ -71,6 +80,18 @@ export class MinionAI {
           target = s;
           break;
         }
+      }
+    }
+
+    // 4. Enemy player in range (lowest priority)
+    if (!target && enemyPlayer && enemyPlayer.isAlive) {
+      const dx = this.minion.x - enemyPlayer.x;
+      const dy = this.minion.y - enemyPlayer.y;
+      const dz = this.minion.z - enemyPlayer.z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d <= MINION_ATTACK_RANGE) {
+        // プレイヤーをターゲットとして扱うが、IDは'player'固定
+        target = { id: 'player', team: enemyPlayer.isAlive ? 'blue' : 'blue', x: enemyPlayer.x, y: enemyPlayer.y, z: enemyPlayer.z, hp: 1, maxHp: 1, isAlive: enemyPlayer.isAlive, takeDamage: () => {} } as Entity;
       }
     }
 

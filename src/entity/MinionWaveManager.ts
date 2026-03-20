@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Minion, MINION_MOVE_SPEED } from './Minion';
-import { MinionAI } from './MinionAI';
+import { MinionAI, PlayerInfo } from './MinionAI';
 import { Structure } from './Structure';
 import { Team } from './Entity';
 import { KnockbackState, createKnockbackState, updateKnockback, hasKnockback } from '../physics/Knockback';
@@ -10,7 +10,7 @@ export const WAVE_SIZE = 3;
 export const BLUE_SPAWN_Z = 10;
 export const RED_SPAWN_Z = 200;
 export const SPAWN_X = 9.0;
-const SPAWN_Y = 5;
+const SPAWN_Y = 4; // GRASS_Y(3) + 1 = 地面の上
 
 export class MinionWaveManager {
   private minions: Minion[] = [];
@@ -19,6 +19,7 @@ export class MinionWaveManager {
   private meshes: Map<string, THREE.Group> = new Map();
   private waveTimer = WAVE_INTERVAL; // Triggers first wave immediately
   private waveCount = 0;
+  private pendingPlayerDamage = 0;
 
   constructor(
     private scene: THREE.Scene,
@@ -26,7 +27,7 @@ export class MinionWaveManager {
     private buildMinionModel?: (team: Team) => THREE.Group,
   ) {}
 
-  update(dt: number, structures: Structure[]): void {
+  update(dt: number, structures: Structure[], playerInfo?: PlayerInfo): void {
     this.structures = structures;
 
     // Wave spawn
@@ -53,26 +54,64 @@ export class MinionWaveManager {
         updateKnockback(kb, dt);
       }
 
-      // AI update
-      const result = ai.update(dt, this.minions, this.structures);
+      // AI update — Redミニオンにはプレイヤー（Blue）を敵として渡す
+      const enemyPlayer = (minion.team !== 'blue' && playerInfo) ? playerInfo : undefined;
+      const result = ai.update(dt, this.minions, this.structures, undefined, enemyPlayer);
 
-      // Apply movement
-      minion.x += result.moveX;
-      minion.z += result.moveZ;
-
-      // Apply damage to target
-      if (result.damage > 0 && result.targetId) {
-        const target = this.minions.find(m => m.id === result.targetId) ??
-          this.structures.find(s => s.id === result.targetId);
-        if (target && target.isAlive) {
-          target.takeDamage(result.damage);
+      // Apply movement with structure collision
+      const newX = minion.x + result.moveX;
+      const newZ = minion.z + result.moveZ;
+      if (!this.collidesWithStructure(newX, minion.y, newZ)) {
+        minion.x = newX;
+        minion.z = newZ;
+      } else {
+        // X方向のみ試す
+        if (!this.collidesWithStructure(newX, minion.y, minion.z)) {
+          minion.x = newX;
+        }
+        // Z方向のみ試す
+        if (!this.collidesWithStructure(minion.x, minion.y, newZ)) {
+          minion.z = newZ;
         }
       }
 
-      // Sync mesh position
+      // Apply damage to target
+      if (result.damage > 0 && result.targetId) {
+        if (result.targetId === 'player') {
+          // プレイヤーへのダメージはGame.tsで処理するためフラグを立てる
+          this.pendingPlayerDamage += result.damage;
+        } else {
+          const target = this.minions.find(m => m.id === result.targetId) ??
+            this.structures.find(s => s.id === result.targetId);
+          if (target && target.isAlive) {
+            target.takeDamage(result.damage);
+          }
+        }
+      }
+
+      // Sync mesh position and animation
       const mesh = this.meshes.get(minion.id);
       if (mesh) {
         mesh.position.set(minion.x, minion.y, minion.z);
+        // 攻撃モーション: 頭を前に突き出す
+        for (const child of mesh.children) {
+          const g = child as THREE.Group;
+          if (g.name === 'head') {
+            const targetAngle = result.state === 'attacking' ?
+              Math.sin(Date.now() * 0.01) * 0.3 : 0; // 攻撃時に頭を振る
+            g.rotation.x = targetAngle;
+          }
+          // 歩行アニメーション（脚を振る）
+          if (result.state === 'walking' || result.state === 'returning') {
+            const walkPhase = Date.now() * 0.008 + minion.x * 10; // ミニオンごとに位相をずらす
+            const angle = Math.sin(walkPhase) * 0.4;
+            if (g.name === 'rightFrontLeg' || g.name === 'leftBackLeg') g.rotation.x = angle;
+            else if (g.name === 'leftFrontLeg' || g.name === 'rightBackLeg') g.rotation.x = -angle;
+          } else {
+            // 静止時は脚をリセット
+            if (g.name.includes('Leg')) g.rotation.x = 0;
+          }
+        }
       }
     }
 
@@ -112,6 +151,8 @@ export class MinionWaveManager {
         mesh.add(new THREE.Mesh(geometry, material));
       }
       mesh.position.set(minion.x, minion.y, minion.z);
+      // チーム方向に向ける: Blue→+Z方向(0), Red→-Z方向(π)
+      mesh.rotation.y = team === 'red' ? Math.PI : 0;
       this.scene.add(mesh);
       this.meshes.set(id, mesh);
     }
@@ -122,5 +163,26 @@ export class MinionWaveManager {
 
   getKnockback(id: string): KnockbackState | undefined {
     return this.knockbacks.get(id);
+  }
+
+  /** ミニオンが構造物と衝突するかチェック（AABB判定、半径0.4） */
+  private collidesWithStructure(x: number, y: number, z: number): boolean {
+    const r = 0.4;
+    for (const s of this.structures) {
+      if (!s.isAlive) continue;
+      if (x + r > s.x && x - r < s.x + s.width &&
+          y + 1.0 > s.y && y < s.y + s.height &&
+          z + r > s.z && z - r < s.z + s.depth) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** ミニオンからプレイヤーへの蓄積ダメージを取得してリセット */
+  consumePlayerDamage(): number {
+    const d = this.pendingPlayerDamage;
+    this.pendingPlayerDamage = 0;
+    return d;
   }
 }

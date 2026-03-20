@@ -20,6 +20,8 @@ import { MinionWaveManager } from '../entity/MinionWaveManager';
 import { ViewMode } from '../player/ViewMode';
 import { applyKnockback, KNOCKBACK_VERTICAL } from '../physics/Knockback';
 import { Entity } from '../entity/Entity';
+import { Minion } from '../entity/Minion';
+import { ATTACK_RANGE, ATTACK_DAMAGE, ATTACK_COOLDOWN } from '../entity/CombatSystem';
 import { buildModel } from '../model/MobModel';
 import { SHEEP_MODEL, PLAYER_MODEL } from '../model/ModelDefinitions';
 import { WalkAnimator, AttackAnimator } from '../model/Animator';
@@ -201,8 +203,19 @@ export class Game {
     const camForwardSync = this.renderer.fpsCamera.getForward();
     this.playerModel.rotation.y = Math.atan2(camForwardSync.x, camForwardSync.z);
 
-    // ミニオンウェーブ更新
-    this.minionWaveManager.update(dt, this.structures);
+    // ミニオンウェーブ更新（プレイヤー情報を渡してRedミニオンがプレイヤーを攻撃可能に）
+    this.minionWaveManager.update(dt, this.structures, {
+      x: this.player.x, y: this.player.y, z: this.player.z,
+      isAlive: this.playerState.isAlive,
+    });
+
+    // ミニオンからプレイヤーへのダメージ処理
+    const minionDamage = this.minionWaveManager.consumePlayerDamage();
+    if (minionDamage > 0 && !this.playerState.isInvincible()) {
+      this.playerState.takeDamage(minionDamage);
+      this.screenShake.trigger();
+      this.hud.triggerDamageFlash();
+    }
 
     // タワーAI更新 — REDチーム（blueミニオン + プレイヤーを攻撃）
     for (const ai of this.towerAIs) {
@@ -399,8 +412,15 @@ export class Game {
       dir.x, dir.y, dir.z,
     );
 
+    // ミニオンのレイキャスト判定（球体近似）
+    const targetMinion = this.findMinionTarget(
+      this.player.eyeX, this.player.eyeY, this.player.eyeZ,
+      dir.x, dir.y, dir.z,
+    );
+
     const leftClick = this.input.consumeLeftClick();
     if (leftClick) {
+      // 構造物ターゲットを先に試す
       const result = this.combatSystem.tryAttack(targetStructure, time / 1000);
 
       if (result.hit) {
@@ -412,9 +432,14 @@ export class Game {
         }
       } else if (result.reason === 'protected') {
         this.hud.showProtected();
-      } else if (result.reason === 'no_target' && blockHit) {
-        if (this.blockInteraction.breakBlock(blockHit)) {
-          this.rebuildDirtyChunks();
+      } else if (result.reason === 'no_target' || result.reason === 'cooldown') {
+        // ミニオンへの攻撃（構造物がなければ）
+        if (targetMinion && result.reason !== 'cooldown') {
+          targetMinion.takeDamage(ATTACK_DAMAGE);
+        } else if (blockHit && result.reason !== 'cooldown') {
+          if (this.blockInteraction.breakBlock(blockHit)) {
+            this.rebuildDirtyChunks();
+          }
         }
       }
     }
@@ -469,6 +494,36 @@ export class Game {
         this.player.eyeZ,
       );
     }
+  }
+
+  /** レイとミニオン（球体近似 半径0.5）の交差判定 */
+  private findMinionTarget(
+    ox: number, oy: number, oz: number,
+    dx: number, dy: number, dz: number,
+  ): Minion | null {
+    let closest: Minion | null = null;
+    let closestT = Infinity;
+    const allMinions = this.minionWaveManager.getAllMinions();
+
+    for (const m of allMinions) {
+      if (!m.isAlive) continue;
+      // 敵ミニオン（Red）のみターゲット可能
+      if (m.team === 'blue') continue;
+
+      const radius = 0.5;
+      const centerY = m.y + 0.5; // ミニオン中心
+      const ex = m.x - ox, ey = centerY - oy, ez = m.z - oz;
+      const b = ex * dx + ey * dy + ez * dz;
+      const c = ex * ex + ey * ey + ez * ez - radius * radius;
+      const disc = b * b - c;
+      if (disc < 0) continue;
+      const t = b - Math.sqrt(disc);
+      if (t > 0 && t <= ATTACK_RANGE && t < closestT) {
+        closest = m;
+        closestT = t;
+      }
+    }
+    return closest;
   }
 
   private checkVictory(): void {
