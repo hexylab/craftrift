@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CraftRift - Sheep Model Debug Viewer</title>
+<style>
+  body { margin: 0; background: #222; color: #eee; font-family: monospace; overflow: hidden; }
+  #info { position: absolute; top: 10px; left: 10px; z-index: 10; font-size: 13px; line-height: 1.6; }
+  #info button { margin: 2px; padding: 4px 10px; cursor: pointer; }
+  #info .active { background: #4488ff; color: #fff; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="info">
+  <div><b>Sheep Model Debug Viewer</b> (OrbitControlsでドラッグ回転、ホイールでズーム)</div>
+  <div>
+    Texture:
+    <button class="active" onclick="loadTex('blue')">Blue Sheep</button>
+    <button onclick="loadTex('red')">Red Sheep</button>
+    <button onclick="loadTex('player')">Player</button>
+  </div>
+  <div>
+    View:
+    <button onclick="toggleWireframe()">Wireframe切替</button>
+    <button onclick="toggleAxes()">Axes切替</button>
+    <button onclick="togglePivots()">Pivot点切替</button>
+  </div>
+  <div id="partInfo"></div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+function computeFaceUVs(originX, originY, w, h, d, texW, texH) {
+  const norm = (px, py, pw, ph) => ({
+    u: (originX + px) / texW, v: (originY + py) / texH, w: pw / texW, h: ph / texH,
+  });
+  return {
+    top: norm(d, 0, w, d), bottom: norm(d + w, 0, w, d),
+    left: norm(0, d, d, h), front: norm(d, d, w, h),
+    right: norm(d + w, d, d, h), back: norm(d + w + d, d, w, h),
+  };
+}
+
+function applyFaceUVs(geometry, part, texW, texH) {
+  const uvs = computeFaceUVs(part.skinRegion.originX, part.skinRegion.originY,
+    part.skinRegion.w, part.skinRegion.h, part.skinRegion.d, texW, texH);
+  const uvAttr = geometry.getAttribute('uv');
+  const arr = uvAttr.array;
+  const faceOrder = [uvs.right, uvs.left, uvs.top, uvs.bottom, uvs.front, uvs.back];
+  for (let face = 0; face < 6; face++) {
+    const f = faceOrder[face]; const base = face * 8;
+    arr[base]=f.u; arr[base+1]=1-f.v; arr[base+2]=f.u+f.w; arr[base+3]=1-f.v;
+    arr[base+4]=f.u; arr[base+5]=1-(f.v+f.h); arr[base+6]=f.u+f.w; arr[base+7]=1-(f.v+f.h);
+  }
+  uvAttr.needsUpdate = true;
+}
+
+function buildModel(def, texture) {
+  const root = new THREE.Group();
+  const material = new THREE.MeshLambertMaterial({ map: texture, side: THREE.DoubleSide });
+  for (const part of def.parts) {
+    const [w, h, d] = part.size;
+    const scale = def.pixelScale;
+    const geometry = new THREE.BoxGeometry(w * scale, h * scale, d * scale);
+    applyFaceUVs(geometry, part, def.textureWidth, def.textureHeight);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(part.offset[0] * scale, part.offset[1] * scale, part.offset[2] * scale);
+    const pivotGroup = new THREE.Group();
+    pivotGroup.name = part.name;
+    pivotGroup.position.set(part.pivot[0] * scale, part.pivot[1] * scale, part.pivot[2] * scale);
+    if (part.initialRotation) pivotGroup.rotation.set(part.initialRotation[0], part.initialRotation[1], part.initialRotation[2]);
+    pivotGroup.add(mesh);
+    root.add(pivotGroup);
+  }
+  return root;
+}
+
+const PX = 1 / 16;
+const SHEEP_MODEL = {
+  textureWidth: 64, textureHeight: 32, pixelScale: PX, forwardAngle: 0,
+  parts: [
+    { name: 'head',          size: [6, 6, 8],   pivot: [0, 18, 8],   offset: [0, 1, 2],   skinRegion: { originX: 0,  originY: 0,  w: 6, h: 6, d: 8 } },
+    { name: 'body',          size: [8, 16, 6],  pivot: [0, 19, -2],  offset: [0, 4, -2],  skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
+    { name: 'rightFrontLeg', size: [4, 12, 4],  pivot: [-3, 12, 5],  offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'leftFrontLeg',  size: [4, 12, 4],  pivot: [3, 12, 5],   offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'rightBackLeg',  size: [4, 12, 4],  pivot: [-3, 12, -7], offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'leftBackLeg',   size: [4, 12, 4],  pivot: [3, 12, -7],  offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+  ],
+};
+const PLAYER_MODEL = {
+  textureWidth: 64, textureHeight: 64, pixelScale: 1.8 / 32, forwardAngle: 0,
+  parts: [
+    { name: 'head',     size: [8, 8, 8],   pivot: [0, 24, 0],   offset: [0, 4, 0],   skinRegion: { originX: 0,  originY: 0,  w: 8, h: 8, d: 8 } },
+    { name: 'body',     size: [8, 12, 4],  pivot: [0, 12, 0],   offset: [0, 6, 0],   skinRegion: { originX: 16, originY: 16, w: 8, h: 12, d: 4 } },
+    { name: 'rightArm', size: [4, 12, 4],  pivot: [-6, 22, 0],  offset: [0, -6, 0],  skinRegion: { originX: 40, originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'leftArm',  size: [4, 12, 4],  pivot: [6, 22, 0],   offset: [0, -6, 0],  skinRegion: { originX: 32, originY: 48, w: 4, h: 12, d: 4 } },
+    { name: 'rightLeg', size: [4, 12, 4],  pivot: [-2, 12, 0],  offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'leftLeg',  size: [4, 12, 4],  pivot: [2, 12, 0],   offset: [0, -6, 0],  skinRegion: { originX: 16, originY: 48, w: 4, h: 12, d: 4 } },
+  ],
+};
+
+// Scene
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x333333);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 100);
+camera.position.set(2, 1.5, 3);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.7, 0);
+controls.update();
+scene.add(new THREE.AmbientLight(0x888888));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+dirLight.position.set(3, 5, 4);
+scene.add(dirLight);
+scene.add(new THREE.GridHelper(4, 20, 0x555555, 0x444444));
+const axes = new THREE.AxesHelper(1);
+scene.add(axes);
+const pivotMarkers = new THREE.Group();
+scene.add(pivotMarkers);
+
+let currentModel = null;
+let currentDef = SHEEP_MODEL;
+let showWireframe = false;
+let showPivots = true;
+const textureLoader = new THREE.TextureLoader();
+const TEXTURES = {
+  blue: { url: '/textures/mobs/blue_sheep.png', def: SHEEP_MODEL },
+  red:  { url: '/textures/mobs/red_sheep.png',  def: SHEEP_MODEL },
+  player: { url: '/textures/mobs/player_default.png', def: PLAYER_MODEL },
+};
+
+function loadTexImpl(name) {
+  const { url, def } = TEXTURES[name];
+  currentDef = def;
+  textureLoader.load(url, (texture) => {
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    if (currentModel) scene.remove(currentModel);
+    currentModel = buildModel(def, texture);
+    scene.add(currentModel);
+    updatePivotMarkers();
+    updatePartInfo();
+  });
+}
+
+function updatePivotMarkers() {
+  while (pivotMarkers.children.length) pivotMarkers.remove(pivotMarkers.children[0]);
+  if (!showPivots || !currentModel) return;
+  const scale = currentDef.pixelScale;
+  for (const part of currentDef.parts) {
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.02, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
+    sphere.position.set(part.pivot[0] * scale, part.pivot[1] * scale, part.pivot[2] * scale);
+    pivotMarkers.add(sphere);
+  }
+}
+
+function updatePartInfo() {
+  const el = document.getElementById('partInfo');
+  const table = document.createElement('table');
+  table.style.cssText = 'font-size:11px;border-collapse:collapse;margin-top:8px;';
+  const header = table.insertRow();
+  ['Part','Size(px)','Pivot(px)','Offset(px)','InitRot'].forEach(t => {
+    const th = document.createElement('th');
+    th.textContent = t;
+    th.style.cssText = 'padding:2px 6px;border:1px solid #555;';
+    header.appendChild(th);
+  });
+  for (const p of currentDef.parts) {
+    const row = table.insertRow();
+    const rot = p.initialRotation ? '[' + p.initialRotation.map(r => (r*180/Math.PI).toFixed(0)+'deg').join(', ') + ']' : '-';
+    [p.name, '['+p.size+']', '['+p.pivot+']', '['+p.offset+']', rot].forEach(t => {
+      const td = row.insertCell();
+      td.textContent = t;
+      td.style.cssText = 'padding:2px 6px;border:1px solid #555;';
+    });
+  }
+  el.replaceChildren(table);
+}
+
+window.loadTex = (name) => {
+  document.querySelectorAll('#info button.active').forEach(b => b.classList.remove('active'));
+  loadTexImpl(name);
+};
+window.toggleWireframe = () => {
+  showWireframe = !showWireframe;
+  if (currentModel) currentModel.traverse(c => { if (c.isMesh) c.material.wireframe = showWireframe; });
+};
+window.toggleAxes = () => { axes.visible = !axes.visible; };
+window.togglePivots = () => { showPivots = !showPivots; updatePivotMarkers(); };
+
+function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+loadTexImpl('blue');
+animate();
+</script>
+</body>
+</html>

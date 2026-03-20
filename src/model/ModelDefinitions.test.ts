@@ -61,10 +61,11 @@ describe('SHEEP_MODEL Minecraft compliance', () => {
     expect(head.offset).toEqual([0, 1, 2]);
   });
 
-  it('body offset converts from MC addBox(-4,-10,-7, 8,16,6)', () => {
+  it('body offset converts from MC addBox(-4,-10,-7, 8,16,6) with -PI/2 X rotation', () => {
     const body = SHEEP_MODEL.parts.find(p => p.name === 'body')!;
-    // MC center = (0, -2, -4), Three.js offset = (0, 2, 4)
-    expect(body.offset).toEqual([0, 2, 4]);
+    // MC center = (0, -2, -4). Body has -PI/2 X rotation so offset is in rotated local coords:
+    // offset = (0, 4, -2) (pre-rotation: Y gets -mcCz, Z gets -mcCy)
+    expect(body.offset).toEqual([0, 4, -2]);
   });
 
   it('leg offsets convert from MC addBox(-2,0,-2, 4,12,4)', () => {

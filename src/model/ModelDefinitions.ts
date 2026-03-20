@@ -50,39 +50,52 @@ export const PLAYER_MODEL: ModelDefinition = {
 
 // Minecraft 1.8.9 ModelSheep2.java + ModelQuadruped.java に基づく正確な寸法
 // テクスチャは 64x32 (textureHeight=32)
-// 座標変換: MC→Three.js
-//   pivot: threeX = mcX, threeY = 24 - mcY, threeZ = -mcZ
-//   offset (addBoxのメッシュ中心): threeX = cx, threeY = -cy, threeZ = -cz
-//     (cx, cy, cz) = (ox + w/2, oy + h/2, oz + d/2)
-//   rotation: threeRx = -mcRx
 //
-// Head:  rotationPoint(0,6,-8),  addBox(-3,-4,-6, 6,6,8)   → center(0,-1,-2) → offset(0,1,2)
-// Body:  rotationPoint(0,5, 2),  addBox(-4,-10,-7, 8,16,6) → center(0,-2,-4) → offset(0,2,4), rotX=PI/2→-PI/2
-// Leg1 (rightHind):  rotationPoint(-3,12, 7),  addBox(-2,0,-2, 4,12,4) → center(0,6,0) → offset(0,-6,0)
-// Leg2 (leftHind):   rotationPoint( 3,12, 7)
-// Leg3 (rightFront): rotationPoint(-3,12,-5)
-// Leg4 (leftFront):  rotationPoint( 3,12,-5)
+// MC座標系: Y=0が頭頂、Y=24が地面、Z-が前方
+// Three.js: Y上向き、Z+が前方（画面手前）
+// 変換: threeX = mcX, threeY = 24 - mcY, threeZ = -mcZ
+//
+// offsetはpivotGroup内のローカル座標。initialRotationがある場合、
+// offsetも回転後の座標系で解釈される。
+// bodyにはX軸-90度回転があるため、ローカルY→ワールド-Z、ローカルZ→ワールドYとなる。
+// そのため、body用offsetはこの回転後の座標系で指定する必要がある。
+//
+// MC addBox(ox, oy, oz, w, h, d)のメッシュ中心:
+//   mcCenter = (ox+w/2, oy+h/2, oz+d/2)
+// Three.jsローカルオフセット（回転なし）:
+//   offset = (mcCenter.x, -mcCenter.y, -mcCenter.z)
+// Three.jsローカルオフセット（-PI/2 X回転あり）: 回転の逆変換を適用
+//   回転後Y' = Z, Z' = -Y なので、逆は Y = -Z', Z = Y'
+//   offset = (mcCenter.x, mcCenter.z, mcCenter.y)  ← 回転前にこの値を設定
+//
+// Head:  rotationPoint(0,6,-8),  addBox(-3,-4,-6, 6,6,8)
+//   mcCenter = (0, -1, -2)
+//   offset = (0, 1, 2)  [回転なし]
+// Body:  rotationPoint(0,5,2),   addBox(-4,-10,-7, 8,16,6), rotX=PI/2
+//   mcCenter = (0, -2, -4)
+//   回転なしなら offset = (0, 2, 4)
+//   -PI/2 X回転あり → offset = (0, -(-4), -2) = (0, 4, -2)
+// Legs:  addBox(-2,0,-2, 4,12,4)
+//   mcCenter = (0, 6, 0)
+//   offset = (0, -6, 0)  [回転なし]
 export const SHEEP_MODEL: ModelDefinition = {
   textureWidth: 64,
   textureHeight: 32,
   pixelScale: PX,
   forwardAngle: 0,
   parts: [
-    // Head: rotationPoint(0,6,-8) → pivot(0, 24-6, 8) = (0,18,8)
-    //   addBox(-3,-4,-6, 6,6,8) → MC center(0,-1,-2) → offset(0,1,2)
-    { name: 'head',          size: [6, 6, 8],   pivot: [0, 18, 8],   offset: [0, 1, 2],   skinRegion: { originX: 0,  originY: 0,  w: 6, h: 6, d: 8 } },
-    // Body: rotationPoint(0,5,2) → pivot(0, 24-5, -2) = (0,19,-2)
-    //   addBox(-4,-10,-7, 8,16,6) → MC center(0,-2,-4) → offset(0,2,4)
-    //   rotateAngleX=PI/2 → initialRotation=(-PI/2, 0, 0)
-    { name: 'body',          size: [8, 16, 6],  pivot: [0, 19, -2],  offset: [0, 2, 4],   skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
+    // Head: rotationPoint(0,6,-8) → pivot(0, 18, 8)
+    { name: 'head',          size: [6, 6, 8],   pivot: [0, 18, 8],   offset: [0, 1, 2],    skinRegion: { originX: 0,  originY: 0,  w: 6, h: 6, d: 8 } },
+    // Body: rotationPoint(0,5,2) → pivot(0, 19, -2), rotateAngleX=PI/2 → -PI/2
+    // offset調整: 回転前のローカル座標で (0, 4, -2)
+    { name: 'body',          size: [8, 16, 6],  pivot: [0, 19, -2],  offset: [0, 4, -2],   skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
     // Leg3 (rightFront): rotationPoint(-3,12,-5) → pivot(-3, 12, 5)
-    //   addBox(-2,0,-2, 4,12,4) → MC center(0,6,0) → offset(0,-6,0)
-    { name: 'rightFrontLeg', size: [4, 12, 4],  pivot: [-3, 12, 5],  offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'rightFrontLeg', size: [4, 12, 4],  pivot: [-3, 12, 5],  offset: [0, -6, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
     // Leg4 (leftFront): rotationPoint(3,12,-5) → pivot(3, 12, 5)
-    { name: 'leftFrontLeg',  size: [4, 12, 4],  pivot: [3, 12, 5],   offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'leftFrontLeg',  size: [4, 12, 4],  pivot: [3, 12, 5],   offset: [0, -6, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
     // Leg1 (rightHind): rotationPoint(-3,12,7) → pivot(-3, 12, -7)
-    { name: 'rightBackLeg',  size: [4, 12, 4],  pivot: [-3, 12, -7], offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'rightBackLeg',  size: [4, 12, 4],  pivot: [-3, 12, -7], offset: [0, -6, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
     // Leg2 (leftHind): rotationPoint(3,12,7) → pivot(3, 12, -7)
-    { name: 'leftBackLeg',   size: [4, 12, 4],  pivot: [3, 12, -7],  offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'leftBackLeg',   size: [4, 12, 4],  pivot: [3, 12, -7],  offset: [0, -6, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
   ],
 };
