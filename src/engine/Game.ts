@@ -14,6 +14,7 @@ import { Structure } from '../entity/Structure';
 import { PlayerState } from '../player/PlayerState';
 import { TowerAI } from '../entity/TowerAI';
 import { ProjectileManager } from '../entity/ProjectileManager';
+import { ProjectileTarget } from '../entity/Projectile';
 import { ScreenShake } from '../effects/ScreenShake';
 
 const DEBUG_DAMAGE = 100;
@@ -38,6 +39,7 @@ export class Game {
   private towerAIs!: TowerAI[];
   private projectileManager!: ProjectileManager;
   private screenShake!: ScreenShake;
+  private playerTarget!: ProjectileTarget;
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -68,6 +70,8 @@ export class Game {
     this.towerAIs = this.structures.map(s => new TowerAI(s));
     this.projectileManager = new ProjectileManager(this.renderer.scene);
     this.screenShake = new ScreenShake();
+    // プレイヤーをProjectileTargetとして表すアダプターオブジェクト
+    this.playerTarget = { x: 0, y: 0, z: 0, isAlive: true };
 
     this.player = new Player(
       SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z,
@@ -135,19 +139,23 @@ export class Game {
     // 重力は常に適用
     this.player.updatePhysics(dt);
 
+    // プレイヤーターゲットを毎フレーム更新
+    this.playerTarget.x = this.player.x;
+    this.playerTarget.y = this.player.y + PLAYER_HEIGHT / 2;
+    this.playerTarget.z = this.player.z;
+    this.playerTarget.isAlive = this.playerState.isAlive;
+
     // タワーAI更新（敵チームのみ）
     for (const ai of this.towerAIs) {
       if (ai.structure.team === 'blue') continue;
       const cmd = ai.update(dt, this.player.x, this.player.y, this.player.z, this.playerState.isAlive);
       if (cmd) {
-        this.projectileManager.spawn(cmd, this.player.x, this.player.y + PLAYER_HEIGHT / 2, this.player.z);
+        this.projectileManager.spawn(cmd, this.playerTarget);
       }
     }
 
     // プロジェクタイル更新
-    const projectileHits = this.projectileManager.update(
-      dt, this.player.x, this.player.y + PLAYER_HEIGHT / 2, this.player.z,
-    );
+    const projectileHits = this.projectileManager.update(dt);
     for (const hit of projectileHits) {
       if (!this.playerState.isInvincible()) {
         this.playerState.takeDamage(hit.damage);

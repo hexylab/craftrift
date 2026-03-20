@@ -1,11 +1,12 @@
 import * as THREE from 'three';
-import { Projectile, PROJECTILE_RADIUS } from './Projectile';
+import { Projectile, PROJECTILE_RADIUS, ProjectileTarget } from './Projectile';
 import { FireCommand } from './TowerAI';
 import { Team } from './Entity';
 
 export interface HitResult {
   damage: number;
   team: Team;
+  target: ProjectileTarget;
 }
 
 export class ProjectileManager {
@@ -14,11 +15,10 @@ export class ProjectileManager {
 
   constructor(private scene: THREE.Scene) {}
 
-  spawn(command: FireCommand, targetX: number, targetY: number, targetZ: number): void {
+  spawn(command: FireCommand, target: ProjectileTarget): void {
     const projectile = new Projectile(
       command.originX, command.originY, command.originZ,
-      command.damage, command.team,
-      targetX, targetY, targetZ,
+      command.damage, command.team, target,
     );
     this.projectiles.push(projectile);
 
@@ -35,13 +35,13 @@ export class ProjectileManager {
     this.meshes.set(projectile, mesh);
   }
 
-  update(dt: number, targetX: number, targetY: number, targetZ: number): HitResult[] {
+  update(dt: number): HitResult[] {
     const hits: HitResult[] = [];
 
     for (const p of this.projectiles) {
-      const hit = p.update(dt, targetX, targetY, targetZ);
+      const hit = p.update(dt);
       if (hit) {
-        hits.push({ damage: p.damage, team: p.team });
+        hits.push({ damage: p.damage, team: p.team, target: p.target });
       }
     }
 
