@@ -238,7 +238,7 @@ describe('tryJump', () => {
 describe('applyEntityKnockback', () => {
   it('ノックバック速度があれば移動する', () => {
     const body = makeBody({ x: 5, z: 5 });
-    const kb: KnockbackState = { vx: 5.0, vy: 0, vz: 0 };
+    const kb: KnockbackState = { vx: 5.0, vz: 0 };
     const beforeX = body.x;
     applyEntityKnockback(body, kb, 1 / 60, emptyWorld);
     expect(body.x).not.toBe(beforeX);
@@ -246,7 +246,7 @@ describe('applyEntityKnockback', () => {
 
   it('ノックバック速度が時間経過で減衰する', () => {
     const body = makeBody();
-    const kb: KnockbackState = { vx: 3.0, vy: 0, vz: 3.0 };
+    const kb: KnockbackState = { vx: 3.0, vz: 3.0 };
     const initialVx = kb.vx;
     applyEntityKnockback(body, kb, 1 / 60, emptyWorld);
     expect(Math.abs(kb.vx)).toBeLessThan(Math.abs(initialVx));
@@ -262,7 +262,7 @@ describe('applyEntityKnockback', () => {
     }
     const world = worldWithBlocks(blocks);
     const body = makeBody({ x: 5, y: 10, z: 5 });
-    const kb: KnockbackState = { vx: 100.0, vy: 0, vz: 0 };
+    const kb: KnockbackState = { vx: 100.0, vz: 0 };
     // 複数フレーム適用
     for (let i = 0; i < 60; i++) {
       applyEntityKnockback(body, kb, 1 / 60, world);
@@ -272,7 +272,7 @@ describe('applyEntityKnockback', () => {
 
   it('速度が小さい場合でも呼び出せる（hasKnockbackがfalseの場合）', () => {
     const body = makeBody();
-    const kb: KnockbackState = { vx: 0, vy: 0, vz: 0 };
+    const kb: KnockbackState = { vx: 0, vz: 0 };
     const beforeX = body.x;
     applyEntityKnockback(body, kb, 1 / 60, emptyWorld);
     expect(body.x).toBe(beforeX);
