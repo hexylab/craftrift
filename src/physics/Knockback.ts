@@ -4,7 +4,6 @@ export const KNOCKBACK_FRICTION = 10.0;
 
 export interface KnockbackState {
   vx: number;
-  vy: number;
   vz: number;
 }
 
@@ -26,7 +25,6 @@ export function applyKnockback(
   }
 
   state.vx = dx * KNOCKBACK_HORIZONTAL;
-  state.vy = KNOCKBACK_VERTICAL;
   state.vz = dz * KNOCKBACK_HORIZONTAL;
 }
 
@@ -34,11 +32,10 @@ export function updateKnockback(state: KnockbackState, dt: number): void {
   const decay = Math.exp(-KNOCKBACK_FRICTION * dt);
   state.vx *= decay;
   state.vz *= decay;
-  state.vy = 0; // Y is handled by Player physics
 }
 
 export function createKnockbackState(): KnockbackState {
-  return { vx: 0, vy: 0, vz: 0 };
+  return { vx: 0, vz: 0 };
 }
 
 export function hasKnockback(state: KnockbackState): boolean {
