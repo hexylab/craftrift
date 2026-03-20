@@ -12,6 +12,10 @@ import { CombatSystem } from '../entity/CombatSystem';
 import { HUD } from '../ui/HUD';
 import { Structure } from '../entity/Structure';
 import { PlayerState } from '../player/PlayerState';
+import { TowerAI } from '../entity/TowerAI';
+import { ProjectileManager } from '../entity/ProjectileManager';
+import { ScreenShake } from '../effects/ScreenShake';
+import { PLAYER_HEIGHT } from '../player/Player';
 
 const DEBUG_DAMAGE = 50;
 
@@ -31,6 +35,9 @@ export class Game {
   private structures!: Structure[];
   private gameOver = false;
   private playerState!: PlayerState;
+  private towerAIs!: TowerAI[];
+  private projectileManager!: ProjectileManager;
+  private screenShake!: ScreenShake;
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -57,6 +64,10 @@ export class Game {
     this.playerState.onDeath(() => {
       // 将来のインベントリドロップ拡張ポイント
     });
+
+    this.towerAIs = this.structures.map(s => new TowerAI(s));
+    this.projectileManager = new ProjectileManager(this.renderer.scene);
+    this.screenShake = new ScreenShake();
 
     this.player = new Player(
       SPAWN_POSITION.x, SPAWN_POSITION.y, SPAWN_POSITION.z,
@@ -135,6 +146,27 @@ export class Game {
       this.player.eyeX, this.player.eyeY, this.player.eyeZ,
     );
 
+    // タワーAI更新（敵チームのみ）
+    for (const ai of this.towerAIs) {
+      if (ai.structure.team === 'blue') continue;
+      const cmd = ai.update(dt, this.player.x, this.player.y, this.player.z, this.playerState.isAlive);
+      if (cmd) {
+        this.projectileManager.spawn(cmd);
+      }
+    }
+
+    // プロジェクタイル更新
+    const hits = this.projectileManager.update(
+      dt, this.player.x, this.player.y + PLAYER_HEIGHT / 2, this.player.z,
+    );
+    for (const hit of hits) {
+      if (!this.playerState.isInvincible()) {
+        this.playerState.takeDamage(hit.damage);
+        this.screenShake.trigger();
+        this.hud.triggerDamageFlash();
+      }
+    }
+
     const dir = this.renderer.fpsCamera.getDirection();
 
     const targetStructure = this.combatSystem.findTarget(
@@ -184,7 +216,11 @@ export class Game {
 
     // デバッグ: Kキーで自傷ダメージ
     if (this.input.consumeKeyPress('KeyK')) {
-      this.playerState.takeDamage(DEBUG_DAMAGE);
+      if (!this.playerState.isInvincible()) {
+        this.playerState.takeDamage(DEBUG_DAMAGE);
+        this.screenShake.trigger();
+        this.hud.triggerDamageFlash();
+      }
     }
 
     // プレイヤーHP HUD更新
@@ -193,6 +229,29 @@ export class Game {
       this.playerState.maxHp,
       this.playerState.isInvincible(),
     );
+
+    // タワー警告HUD
+    const inTowerRange = this.towerAIs.some(
+      ai => ai.structure.team !== 'blue' && ai.structure.isAlive && ai.isInRange(this.player.x, this.player.y, this.player.z),
+    );
+    if (inTowerRange) {
+      this.hud.showTowerWarning();
+    } else {
+      this.hud.hideTowerWarning();
+    }
+
+    // ダメージフラッシュ更新
+    this.hud.updateDamageFlash(dt);
+
+    // 画面シェイク適用（フレーム最後）
+    const shake = this.screenShake.update(dt);
+    if (shake.offsetX !== 0 || shake.offsetY !== 0) {
+      this.renderer.fpsCamera.setPosition(
+        this.player.eyeX + shake.offsetX,
+        this.player.eyeY + shake.offsetY,
+        this.player.eyeZ,
+      );
+    }
   }
 
   private checkVictory(): void {
