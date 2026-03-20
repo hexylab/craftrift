@@ -1,8 +1,9 @@
 // src/ui/HUD.ts
 import { Structure } from '../entity/Structure';
 import { AttackResult } from '../entity/CombatSystem';
+import { DAMAGE_FLASH_DURATION } from '../config/GameBalance';
 
-export const DAMAGE_FLASH_DURATION = 0.15;
+export { DAMAGE_FLASH_DURATION };
 
 export class HUD {
   private targetInfoEl: HTMLElement | null;

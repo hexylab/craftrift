@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { FLASH_DURATION } from '../config/GameBalance';
 
-export const FLASH_DURATION = 0.3; // seconds
+export { FLASH_DURATION };
 
 export interface DamageFlashState {
   timer: number;

@@ -1,6 +1,10 @@
-export const KNOCKBACK_HORIZONTAL = 3.0;
-export const KNOCKBACK_VERTICAL = 2.0;
-export const KNOCKBACK_FRICTION = 10.0;
+import {
+  KNOCKBACK_HORIZONTAL,
+  KNOCKBACK_VERTICAL,
+  KNOCKBACK_FRICTION,
+} from '../config/GameBalance';
+
+export { KNOCKBACK_HORIZONTAL, KNOCKBACK_VERTICAL, KNOCKBACK_FRICTION };
 
 export interface KnockbackState {
   vx: number;

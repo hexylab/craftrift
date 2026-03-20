@@ -1,10 +1,13 @@
 import { Entity, Team } from './Entity';
+import {
+  MINION_HP,
+  MINION_DAMAGE,
+  MINION_ATTACK_INTERVAL,
+  MINION_ATTACK_RANGE,
+  MINION_MOVE_SPEED,
+} from '../config/GameBalance';
 
-export const MINION_HP = 150;
-export const MINION_DAMAGE = 10;
-export const MINION_ATTACK_INTERVAL = 1.0;
-export const MINION_ATTACK_RANGE = 2.0;
-export const MINION_MOVE_SPEED = 3.5;
+export { MINION_HP, MINION_DAMAGE, MINION_ATTACK_INTERVAL, MINION_ATTACK_RANGE, MINION_MOVE_SPEED };
 
 export class Minion extends Entity {
   attackTimer = 0;

@@ -1,7 +1,15 @@
-import { Minion, MINION_ATTACK_RANGE, MINION_MOVE_SPEED, MINION_DAMAGE } from './Minion';
+import { Minion } from './Minion';
 import { Structure } from './Structure';
 import { Entity } from './Entity';
 import { findPath, buildObstacleMap } from '../physics/Pathfinding';
+import {
+  MINION_ATTACK_RANGE,
+  MINION_MOVE_SPEED,
+  MINION_DAMAGE,
+  LANE_CENTER_X,
+  DETECTION_RANGE,
+  LEASH_RANGE,
+} from '../config/GameBalance';
 
 /** プレイヤー位置情報（MinionAIが攻撃判定に使う） */
 export interface PlayerInfo {
@@ -11,9 +19,7 @@ export interface PlayerInfo {
   isAlive: boolean;
 }
 
-export const LANE_CENTER_X = 9.0;
-export const DETECTION_RANGE = 12.0; // この範囲内の敵を追跡開始
-export const LEASH_RANGE = 16.0; // この範囲を超えると追跡中止
+export { LANE_CENTER_X, DETECTION_RANGE, LEASH_RANGE };
 
 export type MinionAIState = 'walking' | 'chasing' | 'attacking';
 

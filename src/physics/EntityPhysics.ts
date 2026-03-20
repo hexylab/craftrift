@@ -1,4 +1,5 @@
 import { KnockbackState, updateKnockback, hasKnockback } from './Knockback';
+import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY } from '../config/GameBalance';
 
 // ---------------------------------------------------------------------------
 // 型定義
@@ -17,13 +18,7 @@ export interface EntityBody {
 /** テスタビリティのためにWorldの最小インターフェースを定義 */
 type WorldLike = { getBlock: (x: number, y: number, z: number) => unknown };
 
-// ---------------------------------------------------------------------------
-// 定数
-// ---------------------------------------------------------------------------
-
-export const GRAVITY = 32;
-export const JUMP_VELOCITY = 9.0;
-export const TERMINAL_VELOCITY = 78.4;
+export { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY };
 
 // ---------------------------------------------------------------------------
 // 内部ヘルパー

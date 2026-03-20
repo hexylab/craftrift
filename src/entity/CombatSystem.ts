@@ -1,8 +1,7 @@
 import { Structure } from './Structure';
+import { ATTACK_DAMAGE, ATTACK_RANGE, ATTACK_COOLDOWN } from '../config/GameBalance';
 
-export const ATTACK_DAMAGE = 50;
-export const ATTACK_RANGE = 5.0;
-export const ATTACK_COOLDOWN = 0.5;
+export { ATTACK_DAMAGE, ATTACK_RANGE, ATTACK_COOLDOWN };
 
 export type AttackFailReason = 'cooldown' | 'no_target' | 'protected';
 
