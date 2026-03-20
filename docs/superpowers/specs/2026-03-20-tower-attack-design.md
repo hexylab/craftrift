@@ -36,6 +36,7 @@ export interface FireCommand {
   originY: number;
   originZ: number;
   damage: number;
+  team: Team;
 }
 
 export class TowerAI {
@@ -59,8 +60,10 @@ export class TowerAI {
 3. タワー中心とターゲット間の距離を計算
 4. 射程外 → `attackTimer = 0`, return null（射程に入り直すとクールダウンから再開）
 5. 射程内 → `attackTimer += dt`
-6. `attackTimer >= TOWER_ATTACK_INTERVAL` → `attackTimer -= TOWER_ATTACK_INTERVAL`, return FireCommand
+6. `attackTimer >= TOWER_ATTACK_INTERVAL` → `attackTimer -= TOWER_ATTACK_INTERVAL`, return FireCommand（`team`は`structure.team`）
 7. それ以外 → return null
+
+**チーム判定:** TowerAIは自チームの敵のみを攻撃する。Game.ts側で、redチームの構造物のTowerAIにはblueプレイヤーの位置を渡し、blueチームのTowerAIには現時点では攻撃対象がいないためスキップする。将来の敵チャンピオン追加時にblue TowerAIも機能させる。init()では全構造物にTowerAIを作成するが、update()ループでは`towerAI.structure.team !== playerTeam`のもののみを更新する（playerTeamは現在'blue'固定）。
 
 **タワー中心の計算:**
 - `getCenterX()`: `structure.x + structure.width / 2`
@@ -110,15 +113,18 @@ export class Projectile {
 ```
 
 **`update(dt, targetX, targetY, targetZ)`:**
+
+ターゲット座標はプレイヤーの中心座標（`x, y + PLAYER_HEIGHT/2, z`）が渡される前提。Game.ts側の`ProjectileManager.update()`呼び出しで`playerY + PLAYER_HEIGHT / 2`を計算して渡す。Projectile内部では渡された座標をそのまま使う。
+
 1. `lifetime += dt`
 2. `lifetime >= PROJECTILE_MAX_LIFETIME` → `alive = false`, return false
-3. ターゲットへの方向ベクトルを計算し正規化
-4. `x += dirX * PROJECTILE_SPEED * dt` 等で移動
-5. ターゲットとの距離が`PROJECTILE_RADIUS + PLAYER_HALF_WIDTH`以下 → `alive = false`, return true（ヒット）
-   - 判定はプレイヤーの中心（x, y + PLAYER_HEIGHT/2, z）との球-球近似で十分
-6. return false
+3. ターゲットへの方向ベクトルを計算
+4. 距離が十分小さい（< 0.001）場合は移動をスキップしステップ5へ（ゼロ除算防止）
+5. 方向ベクトルを正規化し、`x += dirX * PROJECTILE_SPEED * dt` 等で移動
+6. ターゲットとの距離が`PROJECTILE_RADIUS + PLAYER_HIT_RADIUS`以下 → `alive = false`, return true（ヒット）
+7. return false
 
-**ヒット判定の簡略化:** プレイヤーの当たり判定は球近似（中心 = プレイヤー位置 + 高さ/2、半径 = `PLAYER_HEIGHT / 2`）。AABBとの正確な判定は不要で、球-球判定でゲームプレイ上十分。
+**ヒット判定の簡略化:** プレイヤーの当たり判定は球近似。`PLAYER_HIT_RADIUS = 0.5`（PLAYER_WIDTHとPLAYER_HEIGHTの中間的な値）をProjectile.ts内の定数として定義。AABBとの正確な判定は不要で、球-球判定でゲームプレイ上十分。
 
 #### `src/entity/Projectile.test.ts`
 
@@ -140,14 +146,14 @@ export class ProjectileManager {
 
   constructor(private scene: THREE.Scene);
 
-  spawn(command: FireCommand, team: Team): void;
+  spawn(command: FireCommand): void;
   update(dt: number, targetX: number, targetY: number, targetZ: number): HitResult[];
   dispose(): void;
 }
 ```
 
-**`spawn(command, team)`:**
-1. 新しいProjectileを作成
+**`spawn(command)`:**
+1. 新しいProjectileを作成（`command.team`を使用）
 2. SphereGeometry(PROJECTILE_RADIUS, 8, 8)でMeshを作成
 3. マテリアル: チーム色（red → 赤系 #ff4444, blue → 青系 #4444ff）、emissive付きで光る
 4. Meshをsceneに追加、mapに登録
@@ -330,42 +336,42 @@ private screenShake!: ScreenShake;
 8. WASD移動（既存）
 9. カメラ位置更新（既存）
 10. === 新規: タワーAI更新 ===
-    - 各towerAI.update(dt, playerX, playerY, playerZ, playerState.isAlive)
-    - FireCommand返却 → projectileManager.spawn()
+    - 敵チーム(red)のtowerAIのみ: towerAI.update(dt, playerX, playerY, playerZ, playerState.isAlive)
+    - FireCommand返却 → projectileManager.spawn(command)（teamはFireCommandに含まれる）
 11. === 新規: プロジェクタイル更新 ===
     - projectileManager.update(dt, playerX, playerY+PLAYER_HEIGHT/2, playerZ)
     - HitResult[] → 各ヒットに対して:
       - playerState.takeDamage(hit.damage)
       - screenShake.trigger()
       - hud.triggerDamageFlash()
-12. === 新規: 画面シェイク適用 ===
-    - screenShake.update(dt) → カメラにオフセット追加
-13. === 新規: タワー警告HUD ===
-    - いずれかの敵TowerAIのisInRange() → showTowerWarning / hideTowerWarning
-14. === 新規: ダメージフラッシュ更新 ===
-    - hud.updateDamageFlash(dt)
-15. レイキャスト・戦闘（既存）
-16. ブロック操作（既存）
-17. ターゲット情報表示（既存）
-18. === 変更: デバッグKキー ===
+12. レイキャスト・戦闘（既存）
+13. ブロック操作（既存）
+14. ターゲット情報表示（既存）
+15. === 変更: デバッグKキー ===
     - takeDamage + screenShake.trigger() + hud.triggerDamageFlash()
-19. プレイヤーHP HUD更新（既存）
+16. プレイヤーHP HUD更新（既存）
+17. === 新規: タワー警告HUD ===
+    - いずれかの敵TowerAIのisInRange() → showTowerWarning / hideTowerWarning
+18. === 新規: ダメージフラッシュ更新 ===
+    - hud.updateDamageFlash(dt)
+19. === 新規: 画面シェイク適用（フレーム最後）===
+    - screenShake.update(dt) → カメラにオフセット追加
 ```
 
 **画面シェイクの適用方法:**
+- シェイクオフセットはレイキャスト・戦闘（ステップ12）の**後**に適用する。これにより、レイキャストは実際のカメラ位置で行われ、照準がシェイクでずれることを防ぐ
 - カメラの実位置(eyeX, eyeY, eyeZ)にシェイクオフセットを加えた位置をFPSCameraにセット
 - 次フレームのカメラ位置更新（ステップ9）で実位置に戻るため、オフセットは1フレーム限り自然にリセットされる
-- ステップ12でシェイクのオフセットをカメラに追加適用する
 
 **タワー警告の判定:**
-- 敵チームのTowerAI配列をフィルタし、いずれか1つでもisInRange()がtrueなら警告表示
-- 現時点ではプレイヤーはblue → redチームのTowerAIのみチェック
+- 敵チーム(red)のTowerAI配列をフィルタし、いずれか1つでもisInRange()がtrueなら警告表示
+- TowerAIは全構造物に作成するが、update()ループでは`towerAI.structure.team !== 'blue'`（＝redチーム）のもののみ更新する
 
 ## 拡張ポイント
 
 1. **ターゲット選択**: 現在は「最も近い敵」（プレイヤー1人）。将来ミニオン追加時に優先度ロジック（ミニオン優先等）に差し替え可能
 2. **ProjectileManager.update()のターゲット引数**: 現在はプレイヤー位置のみ。将来は複数ターゲットに対応させ、弾ごとにターゲットIDを持たせる
-3. **チーム判定**: 現在はred TowerAIのみがプレイヤーを攻撃。将来の敵チャンピオン追加時にblue TowerAIも機能する
+3. **チーム判定**: 全構造物にTowerAIを生成するが、現在はredチームのみがプレイヤーを攻撃。Game.tsのupdateループで`structure.team !== 'blue'`フィルタ。将来の敵チャンピオン追加時にblue TowerAIも機能させる
 
 ## テスト方針
 
