@@ -58,9 +58,25 @@ export class MinionWaveManager {
       const enemyPlayer = (minion.team !== 'blue' && playerInfo) ? playerInfo : undefined;
       const result = ai.update(dt, this.minions, this.structures, undefined, enemyPlayer);
 
-      // A*パスファインディングベースの移動（MinionAIが計算したmoveX/moveZを適用）
-      minion.x += result.moveX;
-      minion.z += result.moveZ;
+      // A*パスファインディングベースの移動（構造物すり抜け防止付き）
+      const newX = minion.x + result.moveX;
+      const newZ = minion.z + result.moveZ;
+      if (!this.isInsideStructure(newX, minion.y, newZ)) {
+        minion.x = newX;
+        minion.z = newZ;
+      } else if (!this.isInsideStructure(minion.x, minion.y, newZ)) {
+        minion.z = newZ;
+      } else if (!this.isInsideStructure(newX, minion.y, minion.z)) {
+        minion.x = newX;
+      }
+
+      // ミニオンの向きを進行方向に合わせる
+      if (result.moveX !== 0 || result.moveZ !== 0) {
+        const mesh = this.meshes.get(minion.id);
+        if (mesh) {
+          mesh.rotation.y = Math.atan2(result.moveX, result.moveZ);
+        }
+      }
 
       // Apply damage to target
       if (result.damage > 0 && result.targetId) {
@@ -99,6 +115,41 @@ export class MinionWaveManager {
             if (g.name.includes('Leg')) g.rotation.x = 0;
           }
         }
+      }
+    }
+
+    // ミニオン同士の押し出し（separation）— 重なりを防ぐ
+    const MINION_RADIUS = 0.4;
+    const SEPARATION_FORCE = 2.0;
+    for (let i = 0; i < this.minions.length; i++) {
+      const a = this.minions[i];
+      if (!a.isAlive) continue;
+      for (let j = i + 1; j < this.minions.length; j++) {
+        const b = this.minions[j];
+        if (!b.isAlive) continue;
+        const dx = a.x - b.x;
+        const dz = a.z - b.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        const minDist = MINION_RADIUS * 2;
+        if (dist < minDist && dist > 0.001) {
+          const overlap = (minDist - dist) / 2;
+          const nx = dx / dist;
+          const nz = dz / dist;
+          const push = overlap * SEPARATION_FORCE * dt;
+          a.x += nx * push;
+          a.z += nz * push;
+          b.x -= nx * push;
+          b.z -= nz * push;
+        }
+      }
+    }
+
+    // メッシュ位置の最終同期（押し出し後）
+    for (const minion of this.minions) {
+      if (!minion.isAlive) continue;
+      const mesh = this.meshes.get(minion.id);
+      if (mesh) {
+        mesh.position.set(minion.x, minion.y, minion.z);
       }
     }
 
@@ -150,6 +201,19 @@ export class MinionWaveManager {
 
   getKnockback(id: string): KnockbackState | undefined {
     return this.knockbacks.get(id);
+  }
+
+  /** ミニオンが構造物内にいるかチェック */
+  private isInsideStructure(x: number, y: number, z: number): boolean {
+    const r = 0.4;
+    for (const s of this.structures) {
+      if (!s.isAlive) continue;
+      if (x + r > s.x && x - r < s.x + s.width &&
+          z + r > s.z && z - r < s.z + s.depth) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** ミニオンからプレイヤーへの蓄積ダメージを取得してリセット */
