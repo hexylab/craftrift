@@ -38,7 +38,7 @@ describe('buildModel', () => {
     const head = group.children.find(c => c.name === 'head')!;
     const scale = PLAYER_MODEL.pixelScale;
     expect(head.position.x).toBeCloseTo(0 * scale);
-    expect(head.position.y).toBeCloseTo(24 * scale);
+    expect(head.position.y).toBeCloseTo(26 * scale);
     expect(head.position.z).toBeCloseTo(0 * scale);
   });
 

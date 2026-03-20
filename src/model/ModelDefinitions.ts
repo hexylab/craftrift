@@ -39,12 +39,12 @@ export const PLAYER_MODEL: ModelDefinition = {
   forwardAngle: 0,
   parts: [
     // anchor='bottom' → offset=[0, h/2, 0], anchor='top'(default) → offset=[0, -h/2, 0]
-    { name: 'head',     size: [8, 8, 8],   pivot: [0, 24, 0],   offset: [0, 4, 0],   skinRegion: { originX: 0,  originY: 0,  w: 8, h: 8, d: 8 } },
-    { name: 'body',     size: [8, 12, 4],  pivot: [0, 12, 0],   offset: [0, 6, 0],   skinRegion: { originX: 16, originY: 16, w: 8, h: 12, d: 4 } },
-    { name: 'rightArm', size: [4, 12, 4],  pivot: [-6, 22, 0],  offset: [0, -6, 0],  skinRegion: { originX: 40, originY: 16, w: 4, h: 12, d: 4 } },
-    { name: 'leftArm',  size: [4, 12, 4],  pivot: [6, 22, 0],   offset: [0, -6, 0],  skinRegion: { originX: 32, originY: 48, w: 4, h: 12, d: 4 } },
-    { name: 'rightLeg', size: [4, 12, 4],  pivot: [-2, 12, 0],  offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
-    { name: 'leftLeg',  size: [4, 12, 4],  pivot: [2, 12, 0],   offset: [0, -6, 0],  skinRegion: { originX: 16, originY: 48, w: 4, h: 12, d: 4 } },
+    { name: 'head',     size: [8, 8, 8],   pivot: [0, 26, 0],   offset: [0, 4, 0],   skinRegion: { originX: 0,  originY: 0,  w: 8, h: 8, d: 8 } },
+    { name: 'body',     size: [8, 12, 4],  pivot: [0, 14, 0],   offset: [0, 6, 0],   skinRegion: { originX: 16, originY: 16, w: 8, h: 12, d: 4 } },
+    { name: 'rightArm', size: [4, 12, 4],  pivot: [-6, 24, 0],  offset: [0, -6, 0],  skinRegion: { originX: 40, originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'leftArm',  size: [4, 12, 4],  pivot: [6, 24, 0],   offset: [0, -6, 0],  skinRegion: { originX: 32, originY: 48, w: 4, h: 12, d: 4 } },
+    { name: 'rightLeg', size: [4, 12, 4],  pivot: [-2, 14, 0],  offset: [0, -6, 0],  skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
+    { name: 'leftLeg',  size: [4, 12, 4],  pivot: [2, 14, 0],   offset: [0, -6, 0],  skinRegion: { originX: 16, originY: 48, w: 4, h: 12, d: 4 } },
   ],
 };
 
@@ -88,7 +88,8 @@ export const SHEEP_MODEL: ModelDefinition = {
     { name: 'head',          size: [6, 6, 8],   pivot: [0, 18, 8],   offset: [0, 1, 2],    skinRegion: { originX: 0,  originY: 0,  w: 6, h: 6, d: 8 } },
     // Body: rotationPoint(0,5,2) → pivot(0, 19, -2), rotateAngleX=PI/2 → -PI/2
     // offset調整: 回転前のローカル座標で (0, 4, -2)
-    { name: 'body',          size: [8, 16, 6],  pivot: [0, 19, -2],  offset: [0, 4, -2],   skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
+    // offset調整: ローカルY+6(ワールドZ-6=後方へ), ローカルZ+2(ワールドY+2=上へ)
+    { name: 'body',          size: [8, 16, 6],  pivot: [0, 19, -2],  offset: [0, 10, 0],   skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
     // Leg3 (rightFront): rotationPoint(-3,12,-5) → pivot(-3, 12, 5)
     { name: 'rightFrontLeg', size: [4, 12, 4],  pivot: [-3, 12, 5],  offset: [0, -6, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
     // Leg4 (leftFront): rotationPoint(3,12,-5) → pivot(3, 12, 5)
