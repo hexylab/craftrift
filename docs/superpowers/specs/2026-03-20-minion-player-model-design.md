@@ -358,7 +358,15 @@ interface ProjectileTarget {
 }
 ```
 
-Entity（Minionの基底クラス）は既に`x`, `y`, `z`, `isAlive`を直接プロパティとして持つため、そのまま`ProjectileTarget`を満たす。Playerも同様。
+Entity（Minionの基底クラス）は既に`x`, `y`, `z`, `isAlive`を直接プロパティとして持つため、そのまま`ProjectileTarget`を満たす。
+
+**注意:** Playerクラスは`isAlive`を持たない（`PlayerState`に分離されている）。プレイヤーをProjectileTargetとして扱う場合は、Game.tsでアダプターオブジェクトを構成する:
+```typescript
+{ x: player.x, y: player.y + PLAYER_HEIGHT / 2, z: player.z, isAlive: playerState.isAlive }
+```
+
+**各Projectileはターゲット参照を保持:**
+生成時にProjectileTargetの参照を受け取り、update()で自動的にターゲット座標を追尾する。これにより、プレイヤー向けとミニオン向けの弾が個別のターゲットを追尾可能。
 
 ミニオンへの命中判定も追加（既存のプレイヤー判定と同じ球体判定）。
 
