@@ -201,11 +201,12 @@ export class ScreenShake {
 
 **`update(dt)`:**
 1. `timer <= 0` → return `{ offsetX: 0, offsetY: 0 }`
-2. `timer -= dt`
-3. 減衰率: `timer / SCREEN_SHAKE_DURATION`
-4. `offsetX = (Math.random() * 2 - 1) * intensity * 減衰率`
-5. `offsetY = (Math.random() * 2 - 1) * intensity * 減衰率`
-6. return `{ offsetX, offsetY }`
+2. `timer = Math.max(0, timer - dt)`
+3. `timer === 0` → return `{ offsetX: 0, offsetY: 0 }`
+4. 減衰率: `timer / SCREEN_SHAKE_DURATION`
+5. `offsetX = (Math.random() * 2 - 1) * intensity * 減衰率`
+6. `offsetY = (Math.random() * 2 - 1) * intensity * 減衰率`
+7. return `{ offsetX, offsetY }`
 
 #### `src/effects/ScreenShake.test.ts`
 
@@ -341,6 +342,7 @@ private screenShake!: ScreenShake;
 11. === 新規: プロジェクタイル更新 ===
     - projectileManager.update(dt, playerX, playerY+PLAYER_HEIGHT/2, playerZ)
     - HitResult[] → 各ヒットに対して:
+      - 無敵チェック: `playerState.isInvincible()` → trueならエフェクトもスキップ
       - playerState.takeDamage(hit.damage)
       - screenShake.trigger()
       - hud.triggerDamageFlash()
