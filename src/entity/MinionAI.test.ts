@@ -168,21 +168,114 @@ describe('MinionAI State Machine', () => {
   });
 
   // =========================================
-  // Structure targeting in walking mode
+  // Attacking → Chasing when target leaves attack range
   // =========================================
-  describe('Structure targeting in walking mode', () => {
-    it('attacks enemy structure when in range during walking', () => {
+  describe('Attacking → Chasing when target leaves attack range', () => {
+    it('transitions to chasing when enemy minion moves out of attack range', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + MINION_ATTACK_RANGE - 0.1);
+      const ai = new MinionAI(blue);
+      // walking → chasing → attacking
+      const r1 = ai.update(0.1, [blue, red], []);
+      expect(r1.state).toBe('attacking');
+      // ターゲットが攻撃範囲外に移動（LEASH_RANGE内）
+      red.z = 50 + MINION_ATTACK_RANGE + 2;
+      const r2 = ai.update(0.1, [blue, red], []);
+      expect(r2.state).toBe('chasing');
+    });
+
+    it('transitions to chasing when player moves out of attack range', () => {
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50);
+      const player = { x: LANE_CENTER_X, y: 0, z: 50 - 1.0, isAlive: true };
+      const ai = new MinionAI(red);
+      // プレイヤーが攻撃範囲内 → attacking
+      const r1 = ai.update(0.1, [red], [], undefined, player);
+      expect(r1.state).toBe('attacking');
+      expect(r1.targetId).toBe('player');
+      // プレイヤーが攻撃範囲外に移動（LEASH_RANGE内）
+      player.z = 50 - MINION_ATTACK_RANGE - 2;
+      const r2 = ai.update(0.1, [red], [], undefined, player);
+      expect(r2.state).toBe('chasing');
+    });
+
+    it('transitions to walking when player exceeds leash range', () => {
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50);
+      const player = { x: LANE_CENTER_X, y: 0, z: 50 - 1.0, isAlive: true };
+      const ai = new MinionAI(red);
+      const r1 = ai.update(0.1, [red], [], undefined, player);
+      expect(r1.state).toBe('attacking');
+      // プレイヤーがLEASH_RANGE外へ移動
+      player.z = 50 - LEASH_RANGE - 1;
+      const r2 = ai.update(0.1, [red], [], undefined, player);
+      expect(r2.state).toBe('walking');
+    });
+
+    it('stops dealing damage when player moves out of attack range', () => {
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50);
+      const player = { x: LANE_CENTER_X, y: 0, z: 50 - 1.0, isAlive: true };
+      const ai = new MinionAI(red);
+      // attacking状態にする
+      ai.update(0.1, [red], [], undefined, player);
+      // 攻撃タイマーを進めてダメージ発生を確認
+      const r1 = ai.update(MINION_ATTACK_INTERVAL, [red], [], undefined, player);
+      expect(r1.damage).toBe(MINION_DAMAGE);
+      // プレイヤーが攻撃範囲外に移動
+      player.z = 50 - MINION_ATTACK_RANGE - 2;
+      const r2 = ai.update(MINION_ATTACK_INTERVAL, [red], [], undefined, player);
+      // chasing状態に遷移してダメージは0
+      expect(r2.state).toBe('chasing');
+      expect(r2.damage).toBe(0);
+    });
+  });
+
+  // =========================================
+  // Structure targeting (unified with minion/player)
+  // =========================================
+  describe('Structure targeting', () => {
+    it('attacks enemy structure when in attack range', () => {
       // タワー at (8, 4, 135) size 3x6x3 → center (9.5, 7, 136.5)
       const blue = makeMinion('blue-1', 'blue', 9.5, 7, 136.5);
       const redTower = makeTower('red-t1', 'red', 8, 4, 135);
       const ai = new MinionAI(blue);
       const result = ai.update(MINION_ATTACK_INTERVAL, [blue], [redTower]);
-      // walking状態のまま構造物を攻撃する
-      expect(result.state).toBe('walking');
+      // 構造物もfindTargetで検出 → chasing → attacking
+      expect(result.state).toBe('attacking');
       expect(result.targetId).toBe('red-t1');
       expect(result.damage).toBe(MINION_DAMAGE);
       expect(result.moveX).toBe(0);
       expect(result.moveZ).toBe(0);
+    });
+
+    it('chases enemy structure within detection range', () => {
+      // タワー center (9.5, 7, 136.5) — ミニオンから ~5ブロック離れた位置
+      const blue = makeMinion('blue-1', 'blue', 9.5, 7, 131);
+      const redTower = makeTower('red-t1', 'red', 8, 4, 135);
+      const ai = new MinionAI(blue);
+      const result = ai.update(0.1, [blue], [redTower]);
+      expect(result.state).toBe('chasing');
+      expect(result.targetId).toBe('red-t1');
+      expect(result.moveZ).toBeGreaterThan(0); // タワーに向かって移動
+    });
+
+    it('targets closer tower over farther minion', () => {
+      // タワーが近い（center距離 ≈ 2）、ミニオンが遠い（距離 = 6）
+      const blue = makeMinion('blue-1', 'blue', 9.5, 7, 134);
+      const redTower = makeTower('red-t1', 'red', 8, 4, 135); // center (9.5, 7, 136.5) → dist ≈ 2.5
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 140); // dist = 6
+      const ai = new MinionAI(blue);
+      const result = ai.update(0.1, [blue, red], [redTower]);
+      expect(result.targetId).toBe('red-t1');
+    });
+
+    it('targets closer minion over farther tower', () => {
+      const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      // ミニオンが近い
+      const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 52); // dist = 2
+      // タワーが遠い（center距離 ≈ 7）
+      const redTower = makeTower('red-t1', 'red', 8, 4, 55); // center (9.5, 7, 56.5) → dist ≈ 9
+      const ai = new MinionAI(blue);
+      const result = ai.update(0.1, [blue, red], [redTower]);
+      expect(result.targetId).toBe('red-1');
     });
 
     it('does not attack protected structure', () => {
@@ -218,14 +311,15 @@ describe('MinionAI State Machine', () => {
       expect(result.targetId).toBe('red-attacker');
     });
 
-    it('prioritizes enemy minion over player', () => {
+    it('targets nearest enemy regardless of type (minion vs player)', () => {
       const blue = makeMinion('blue-1', 'blue', LANE_CENTER_X, 0, 50);
+      // プレイヤーが近い（距離1）、ミニオンが遠い（距離7）
       const red = makeMinion('red-1', 'red', LANE_CENTER_X, 0, 50 + DETECTION_RANGE - 1);
       const enemyPlayer = { x: LANE_CENTER_X, y: 0, z: 50 + 1, isAlive: true };
       const ai = new MinionAI(blue);
       const result = ai.update(0.1, [blue, red], [], undefined, enemyPlayer);
-      // ミニオンがプレイヤーより優先される
-      expect(result.targetId).toBe('red-1');
+      // 距離ベースでプレイヤーが最も近い
+      expect(result.targetId).toBe('player');
     });
   });
 

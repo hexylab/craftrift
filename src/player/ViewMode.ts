@@ -1,7 +1,7 @@
-export type ViewModeType = 'first-person' | 'third-person-back' | 'third-person-front';
+export type ViewModeType = 'first-person' | 'third-person-back';
 export const THIRD_PERSON_DISTANCE = 4.0;
 
-const MODE_CYCLE: ViewModeType[] = ['first-person', 'third-person-back', 'third-person-front'];
+const MODE_CYCLE: ViewModeType[] = ['first-person', 'third-person-back'];
 
 export class ViewMode {
   private modeIndex = 0;
@@ -13,11 +13,10 @@ export class ViewMode {
 
   getCameraOffset(forwardX: number, forwardY: number, forwardZ: number): { x: number; y: number; z: number } {
     if (this.current === 'first-person') return { x: 0, y: 0, z: 0 };
-    const sign = this.current === 'third-person-back' ? -1 : 1;
     return {
-      x: forwardX * sign * THIRD_PERSON_DISTANCE,
+      x: -forwardX * THIRD_PERSON_DISTANCE,
       y: 1.0,
-      z: forwardZ * sign * THIRD_PERSON_DISTANCE,
+      z: -forwardZ * THIRD_PERSON_DISTANCE,
     };
   }
 }

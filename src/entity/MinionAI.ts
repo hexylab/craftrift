@@ -12,8 +12,8 @@ export interface PlayerInfo {
 }
 
 export const LANE_CENTER_X = 9.0;
-export const DETECTION_RANGE = 8.0;  // この範囲内の敵を追跡開始
-export const LEASH_RANGE = 12.0;     // この範囲を超えると追跡中止
+export const DETECTION_RANGE = 12.0;  // この範囲内の敵を追跡開始
+export const LEASH_RANGE = 16.0;     // この範囲を超えると追跡中止
 
 export type MinionAIState = 'walking' | 'chasing' | 'attacking';
 
@@ -66,6 +66,14 @@ export class MinionAI {
       return { ...IDLE_RESULT };
     }
 
+    // プレイヤーターゲットの座標を最新に同期（findTargetが作るスナップショットは位置が固定されるため）
+    if (this.currentTarget?.id === 'player' && enemyPlayer) {
+      this.currentTarget.x = enemyPlayer.x;
+      this.currentTarget.y = enemyPlayer.y;
+      this.currentTarget.z = enemyPlayer.z;
+      this.currentTarget.isAlive = enemyPlayer.isAlive;
+    }
+
     switch (this.state) {
       case 'walking':
         return this.updateWalking(dt, allMinions, structures, attackingMeId, enemyPlayer);
@@ -86,34 +94,13 @@ export class MinionAI {
     attackingMeId?: string,
     enemyPlayer?: PlayerInfo,
   ): MinionAIResult {
-    // 敵がDETECTION_RANGE内にいれば追跡開始
-    const chaseTarget = this.findTarget(allMinions, attackingMeId, enemyPlayer);
+    // DETECTION_RANGE内の最も近い敵（ミニオン・構造物・プレイヤー）を追跡
+    const chaseTarget = this.findTarget(allMinions, structures, attackingMeId, enemyPlayer);
     if (chaseTarget) {
       this.currentTarget = chaseTarget;
       this.state = 'chasing';
       this.minion.resetAttackTimer();
       return this.updateChasing(dt, allMinions, structures, attackingMeId, enemyPlayer);
-    }
-
-    // 射程内の未保護敵構造物があれば攻撃（state は walking のまま）
-    const enemyStructures = structures.filter(
-      s => s.team !== this.minion.team && s.isAlive && !s.isProtected(),
-    );
-    for (const s of enemyStructures) {
-      if (this.distanceToStructure(s) <= MINION_ATTACK_RANGE) {
-        let damage = 0;
-        if (this.minion.tryAttack(dt)) {
-          damage = MINION_DAMAGE;
-        }
-        return {
-          state: 'walking',
-          moveX: 0,
-          moveZ: 0,
-          targetId: s.id,
-          damage,
-          shouldJump: false,
-        };
-      }
     }
 
     // 攻撃対象がない → 攻撃タイマーリセット
@@ -166,8 +153,8 @@ export class MinionAI {
     attackingMeId?: string,
     enemyPlayer?: PlayerInfo,
   ): MinionAIResult {
-    // ターゲット再評価: より優先度の高いターゲットがいないか
-    const betterTarget = this.findTarget(allMinions, attackingMeId, enemyPlayer);
+    // ターゲット再評価: より優先度の高い/近いターゲットがいないか
+    const betterTarget = this.findTarget(allMinions, structures, attackingMeId, enemyPlayer);
     if (betterTarget) {
       this.currentTarget = betterTarget;
     }
@@ -190,10 +177,11 @@ export class MinionAI {
       return this.updateAttacking(dt, allMinions, structures, attackingMeId, enemyPlayer);
     }
 
-    // A*パスファインディングでターゲットに向かう
+    // A*パスファインディングでターゲットに向かう（構造物は中心座標を使用）
+    const tp = this.targetPosition(this.currentTarget);
     this.pathTimer += dt;
     if (this.pathTimer >= PATH_RECALC_INTERVAL || this.waypoints.length === 0) {
-      this.recalculatePathToTarget(structures, this.currentTarget.x, this.currentTarget.z);
+      this.recalculatePathToTarget(structures, tp.x, tp.z);
     }
 
     // ウェイポイント追跡
@@ -217,7 +205,7 @@ export class MinionAI {
     }
 
     // フォールバック: ターゲットに直接向かう
-    return this.moveToward(this.currentTarget.x, this.currentTarget.z, dt, 'chasing', this.currentTarget.id);
+    return this.moveToward(tp.x, tp.z, dt, 'chasing', this.currentTarget.id);
   }
 
   // =========================================
@@ -290,19 +278,19 @@ export class MinionAI {
   }
 
   /**
-   * ターゲット優先順位に基づいて追跡対象を検索する
-   * 1. 自分を攻撃中の敵（attackingMeId）
-   * 2. DETECTION_RANGE内の最も近い敵ミニオン
-   * 3. DETECTION_RANGE内の敵プレイヤー
+   * LoL準拠のターゲット優先順位に基づいて追跡対象を検索する
+   * 1. 自分を攻撃中の敵（attackingMeId）— 最優先
+   * 2. DETECTION_RANGE内の最も近い敵オブジェクト（ミニオン・構造物・プレイヤー問わず）
    */
   private findTarget(
     allMinions: Minion[],
+    structures: Structure[],
     attackingMeId?: string,
     enemyPlayer?: PlayerInfo,
   ): Entity | null {
     const enemyMinions = allMinions.filter(m => m.team !== this.minion.team && m.isAlive);
 
-    // 1. 自分を攻撃中の敵
+    // 1. 自分を攻撃中の敵（最優先）
     if (attackingMeId) {
       const attacker = enemyMinions.find(m => m.id === attackingMeId);
       if (attacker && this.distanceTo(attacker) <= DETECTION_RANGE) {
@@ -310,9 +298,10 @@ export class MinionAI {
       }
     }
 
-    // 2. DETECTION_RANGE内の最も近い敵ミニオン
-    let closest: Minion | null = null;
+    // 2. DETECTION_RANGE内の最も近い敵（ミニオン・構造物・プレイヤー統一）
+    let closest: Entity | null = null;
     let closestDist = DETECTION_RANGE;
+
     for (const enemy of enemyMinions) {
       const d = this.distanceTo(enemy);
       if (d < closestDist) {
@@ -320,16 +309,25 @@ export class MinionAI {
         closestDist = d;
       }
     }
-    if (closest) return closest;
 
-    // 3. DETECTION_RANGE内の敵プレイヤー
+    const enemyStructures = structures.filter(
+      s => s.team !== this.minion.team && s.isAlive && !s.isProtected(),
+    );
+    for (const s of enemyStructures) {
+      const d = this.distanceTo(s);
+      if (d < closestDist) {
+        closest = s;
+        closestDist = d;
+      }
+    }
+
     if (enemyPlayer && enemyPlayer.isAlive) {
       const dx = this.minion.x - enemyPlayer.x;
       const dy = this.minion.y - enemyPlayer.y;
       const dz = this.minion.z - enemyPlayer.z;
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (d <= DETECTION_RANGE) {
-        return {
+      if (d < closestDist) {
+        closest = {
           id: 'player',
           team: this.minion.team === 'blue' ? 'red' : 'blue',
           x: enemyPlayer.x,
@@ -343,7 +341,7 @@ export class MinionAI {
       }
     }
 
-    return null;
+    return closest;
   }
 
   /** ターゲット地点に向かって移動する結果を返す */
@@ -425,20 +423,35 @@ export class MinionAI {
     return enemies[0];
   }
 
+  /**
+   * ターゲットへの移動先座標を返す。
+   * 構造物: XZ footprint上の最近接点（最寄りの壁面に向かう）
+   * ミニオン/プレイヤー: そのまま座標を返す
+   */
+  private targetPosition(entity: Entity): { x: number; y: number; z: number } {
+    if (entity instanceof Structure) {
+      return {
+        x: Math.max(entity.x, Math.min(this.minion.x, entity.x + entity.width)),
+        y: this.minion.y,
+        z: Math.max(entity.z, Math.min(this.minion.z, entity.z + entity.depth)),
+      };
+    }
+    return { x: entity.x, y: entity.y, z: entity.z };
+  }
+
   private distanceTo(entity: Entity): number {
+    if (entity instanceof Structure) {
+      // 構造物: XZ平面上のAABB最近接点への距離（高さ差を無視）
+      // ミニオンはタワーの「壁面」に到達すれば攻撃可能
+      const closestX = Math.max(entity.x, Math.min(this.minion.x, entity.x + entity.width));
+      const closestZ = Math.max(entity.z, Math.min(this.minion.z, entity.z + entity.depth));
+      const dx = this.minion.x - closestX;
+      const dz = this.minion.z - closestZ;
+      return Math.sqrt(dx * dx + dz * dz);
+    }
     const dx = this.minion.x - entity.x;
     const dy = this.minion.y - entity.y;
     const dz = this.minion.z - entity.z;
-    return Math.sqrt(dx * dx + dy * dy + dz * dz);
-  }
-
-  private distanceToStructure(s: Structure): number {
-    const cx = s.x + s.width / 2;
-    const cy = s.y + s.height / 2;
-    const cz = s.z + s.depth / 2;
-    const dx = this.minion.x - cx;
-    const dy = this.minion.y - cy;
-    const dz = this.minion.z - cz;
     return Math.sqrt(dx * dx + dy * dy + dz * dz);
   }
 }

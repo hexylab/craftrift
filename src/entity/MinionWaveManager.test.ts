@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { MinionWaveManager, WAVE_INTERVAL, WAVE_SIZE, WorldLike } from './MinionWaveManager';
+import { MinionWaveManager, WAVE_INTERVAL, WAVE_SIZE, SPAWN_STAGGER, FIRST_WAVE_DELAY, WorldLike } from './MinionWaveManager';
 import * as THREE from 'three';
 import { PlayerInfo } from './MinionAI';
 
@@ -11,29 +11,72 @@ const mockWorld: WorldLike = {
   },
 };
 
+/** 初回ウェーブディレイを消化してから全ミニオンをスポーンさせる */
+function spawnFullWave(manager: MinionWaveManager): void {
+  // 初回ディレイを消化 + 1体目スポーン
+  manager.update(FIRST_WAVE_DELAY + 0.1, [], mockWorld);
+  // 残りの (WAVE_SIZE - 1) 体をスポーンさせる
+  for (let i = 1; i < WAVE_SIZE; i++) {
+    manager.update(SPAWN_STAGGER, [], mockWorld);
+  }
+}
+
 describe('MinionWaveManager', () => {
   function createManager() {
     const scene = new THREE.Scene();
     return new MinionWaveManager(scene, []);
   }
 
-  it('spawns first wave immediately', () => {
+  it('does not spawn minions before FIRST_WAVE_DELAY', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
-    expect(manager.getAllMinions().length).toBe(6); // 3 blue + 3 red
+    manager.update(FIRST_WAVE_DELAY - 1, [], mockWorld);
+    expect(manager.getAllMinions().length).toBe(0);
+  });
+
+  it('spawns first pair after FIRST_WAVE_DELAY', () => {
+    const manager = createManager();
+    manager.update(FIRST_WAVE_DELAY + 0.1, [], mockWorld);
+    expect(manager.getAllMinions().length).toBe(2);
+  });
+
+  it('staggers minion spawns within a wave', () => {
+    const manager = createManager();
+    manager.update(FIRST_WAVE_DELAY + 0.1, [], mockWorld);
+    expect(manager.getAllMinions().length).toBe(2); // 1st pair
+
+    manager.update(SPAWN_STAGGER, [], mockWorld);
+    expect(manager.getAllMinions().length).toBe(4); // 2nd pair
+
+    manager.update(SPAWN_STAGGER, [], mockWorld);
+    expect(manager.getAllMinions().length).toBe(6); // 3rd pair — full wave
+  });
+
+  it('completes full wave after stagger period', () => {
+    const manager = createManager();
+    spawnFullWave(manager);
+    expect(manager.getAllMinions().length).toBe(WAVE_SIZE * 2);
   });
 
   it('spawns next wave after interval', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
     expect(manager.getAllMinions().length).toBe(6);
-    manager.update(WAVE_INTERVAL, [], mockWorld);
+
+    // 1波目からの経過時間: FIRST_WAVE_DELAY + 0.1 + SPAWN_STAGGER * (WAVE_SIZE - 1)
+    // 次のウェーブまでの残り時間を計算
+    const firstWaveElapsed = FIRST_WAVE_DELAY + 0.1 + SPAWN_STAGGER * (WAVE_SIZE - 1);
+    const remaining = WAVE_INTERVAL - (firstWaveElapsed - FIRST_WAVE_DELAY);
+    manager.update(remaining + 0.1, [], mockWorld); // 2波目開始 + 1体目
+    // 2波目の残りをスポーン
+    for (let i = 1; i < WAVE_SIZE; i++) {
+      manager.update(SPAWN_STAGGER, [], mockWorld);
+    }
     expect(manager.getAllMinions().length).toBe(12);
   });
 
   it('removes dead minions', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
     const minions = manager.getAllMinions();
     minions[0].takeDamage(150); // instant kill
     manager.update(0.1, [], mockWorld);
@@ -42,20 +85,24 @@ describe('MinionWaveManager', () => {
 
   it('blue minions spawn at low-z, red at high-z', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    // タイマーをウェーブ直前まで進め、小さいdtでスポーンさせる（移動量を最小化）
+    manager.update(FIRST_WAVE_DELAY - 0.01, [], mockWorld);
+    expect(manager.getAllMinions().length).toBe(0);
+    manager.update(0.02, [], mockWorld); // ウェーブ発動 + ごく小さいdt
     const blues = manager.getTeamMinions('blue');
     const reds = manager.getTeamMinions('red');
-    expect(blues.length).toBe(WAVE_SIZE);
-    expect(reds.length).toBe(WAVE_SIZE);
-    expect(blues[0].z).toBeLessThan(50);
-    expect(reds[0].z).toBeGreaterThan(150);
+    expect(blues.length).toBeGreaterThanOrEqual(1);
+    expect(reds.length).toBeGreaterThanOrEqual(1);
+    // BLUE_SPAWN_Z=12, RED_SPAWN_Z=197, dt=0.02なので移動は微小
+    expect(blues[0].z).toBeLessThan(20);
+    expect(reds[0].z).toBeGreaterThan(190);
   });
 
   it('uses custom model builder when provided', () => {
     const scene = new THREE.Scene();
     const builder = vi.fn(() => ({ mesh: new THREE.Group(), forwardAngle: 0 }));
     const manager = new MinionWaveManager(scene, [], builder);
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
     expect(builder).toHaveBeenCalledTimes(6); // 3 blue + 3 red
   });
 
@@ -76,7 +123,7 @@ describe('MinionWaveManager', () => {
 
   it('minions have width and height for EntityBody', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
     const minion = manager.getAllMinions()[0];
     expect(minion.width).toBe(0.8);
     expect(minion.height).toBe(1.0);
@@ -93,7 +140,7 @@ describe('DamageFlash integration', () => {
 
   it('triggerMinionFlash activates flash state for existing minion', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
     const minion = manager.getAllMinions()[0];
 
     // Flash should not be active initially
@@ -103,14 +150,14 @@ describe('DamageFlash integration', () => {
 
   it('triggerMinionFlash is a no-op for unknown id', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
     // Should not throw for unknown id
     expect(() => manager.triggerMinionFlash('nonexistent-id')).not.toThrow();
   });
 
   it('dead minion flash state is cleaned up', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
     const minion = manager.getAllMinions()[0];
     const id = minion.id;
 
@@ -132,7 +179,7 @@ describe('Player-Minion collision', () => {
 
   it('pushes minion away from player when overlapping', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
 
     const minion = manager.getAllMinions()[0];
     const initialX = minion.x;
@@ -156,7 +203,7 @@ describe('Player-Minion collision', () => {
 
   it('skips push when Y difference > 1.0', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
 
     const minion = manager.getAllMinions()[0];
 
@@ -188,7 +235,7 @@ describe('Player-Minion collision', () => {
 
   it('does not push when playerInfo.isAlive is false', () => {
     const manager = createManager();
-    manager.update(0.1, [], mockWorld);
+    spawnFullWave(manager);
 
     const minion = manager.getAllMinions()[0];
 

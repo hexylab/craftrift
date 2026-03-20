@@ -385,8 +385,8 @@ export class Game {
     // カメラ位置更新（視点モードに応じて）
     this.updateCameraPosition();
 
-    // レイキャスト・戦闘
-    const dir = this.renderer.fpsCamera.getDirection();
+    // レイキャスト・戦闘（TPSではカメラレイ収束方式でクロスヘアとターゲットを一致させる）
+    const dir = this.getTargetDirection();
 
     const targetStructure = this.combatSystem.findTarget(
       this.player.eyeX, this.player.eyeY, this.player.eyeZ,
@@ -469,6 +469,30 @@ export class Game {
     if (shake.offsetX !== 0 || shake.offsetY !== 0) {
       this.updateCameraPosition(shake.offsetX, shake.offsetY);
     }
+  }
+
+  /**
+   * TPS時のターゲティング方向を算出する（カメラレイ収束方式）
+   * カメラの画面中央が指す遠方の点を求め、プレイヤーの目からその点への方向を返す。
+   * これによりクロスヘアの指す先と実際のターゲットが一致する。
+   */
+  private getTargetDirection(): THREE.Vector3 {
+    const camDir = this.renderer.fpsCamera.getDirection();
+    if (this.viewMode.isFirstPerson) {
+      return camDir;
+    }
+    // カメラ位置から画面中央方向に遠方の参照点を求める
+    const cam = this.renderer.fpsCamera.camera.position;
+    const FAR = 100;
+    const tx = cam.x + camDir.x * FAR;
+    const ty = cam.y + camDir.y * FAR;
+    const tz = cam.z + camDir.z * FAR;
+    // プレイヤーの目からその参照点への方向
+    const dx = tx - this.player.eyeX;
+    const dy = ty - this.player.eyeY;
+    const dz = tz - this.player.eyeZ;
+    const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    return new THREE.Vector3(dx / len, dy / len, dz / len);
   }
 
   /** 現在のviewModeに応じたカメラ位置を設定する */

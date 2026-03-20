@@ -14,7 +14,9 @@ import { createHealthBar, updateHealthBar } from '../ui/HealthBar3D';
 export type WorldLike = { getBlock: (x: number, y: number, z: number) => unknown };
 
 export const WAVE_INTERVAL = 30.0;
+export const FIRST_WAVE_DELAY = 20.0; // 最初のウェーブまでの待機時間（秒）
 export const WAVE_SIZE = 3;
+export const SPAWN_STAGGER = 0.75; // 1体ごとのスポーン間隔（秒）
 export const BLUE_SPAWN_Z = 12; // Blue Nexus(Z=6, depth=5)の外側
 export const RED_SPAWN_Z = 197; // Red Nexus(Z=198, depth=5)の外側
 export const SPAWN_X = 9.0;
@@ -30,8 +32,10 @@ export class MinionWaveManager {
   private forwardAngles: Map<string, number> = new Map();
   private damageFlashes: Map<string, DamageFlashState> = new Map();
   private healthBars: Map<string, THREE.Sprite> = new Map();
-  private waveTimer = WAVE_INTERVAL; // Triggers first wave immediately
+  private waveTimer = WAVE_INTERVAL - FIRST_WAVE_DELAY; // 最初のウェーブはFIRST_WAVE_DELAY後
   private waveCount = 0;
+  private pendingSpawns = 0;         // 現在のウェーブで未スポーンのミニオン数
+  private spawnStaggerTimer = 0;     // 次のスポーンまでのタイマー
   private pendingPlayerDamage = 0;
 
   constructor(
@@ -43,13 +47,24 @@ export class MinionWaveManager {
   update(dt: number, structures: Structure[], world: WorldLike, playerInfo?: PlayerInfo): void {
     this.structures = structures;
 
-    // Wave spawn
+    // Wave spawn — ウェーブ開始時にpendingSpawnsをセット、1体ずつ時間差でスポーン
     this.waveTimer += dt;
     if (this.waveTimer >= WAVE_INTERVAL) {
       this.waveTimer -= WAVE_INTERVAL;
-      this.spawnWave('blue');
-      this.spawnWave('red');
+      this.pendingSpawns = WAVE_SIZE;
+      this.spawnStaggerTimer = SPAWN_STAGGER; // 初回は即スポーン
       this.waveCount++;
+    }
+
+    if (this.pendingSpawns > 0) {
+      this.spawnStaggerTimer += dt;
+      if (this.spawnStaggerTimer >= SPAWN_STAGGER) {
+        this.spawnStaggerTimer = 0; // 累積を防ぐためリセット
+        const index = WAVE_SIZE - this.pendingSpawns;
+        this.spawnSingleMinion('blue', index);
+        this.spawnSingleMinion('red', index);
+        this.pendingSpawns--;
+      }
     }
 
     // Update each minion AI
@@ -249,43 +264,41 @@ export class MinionWaveManager {
     this.minions = this.minions.filter(m => m.isAlive);
   }
 
-  private spawnWave(team: Team): void {
+  /** 1体のミニオンをスポーンする（全て同じ位置から出発） */
+  private spawnSingleMinion(team: Team, index: number): void {
     const z = team === 'blue' ? BLUE_SPAWN_Z : RED_SPAWN_Z;
-    for (let i = 0; i < WAVE_SIZE; i++) {
-      const id = `${team}-minion-w${this.waveCount}-${i}`;
-      const offsetX = (i - 1) * 1.5;
-      const minion = new Minion(id, team, SPAWN_X + offsetX, SPAWN_Y, z);
-      this.minions.push(minion);
-      this.ais.set(id, new MinionAI(minion));
-      this.knockbacks.set(id, createKnockbackState());
-      this.damageFlashes.set(id, createDamageFlash());
+    const id = `${team}-minion-w${this.waveCount}-${index}`;
+    const minion = new Minion(id, team, SPAWN_X, SPAWN_Y, z);
+    this.minions.push(minion);
+    this.ais.set(id, new MinionAI(minion));
+    this.knockbacks.set(id, createKnockbackState());
+    this.damageFlashes.set(id, createDamageFlash());
 
-      // Create mesh (use model builder if provided, else placeholder box)
-      let mesh: THREE.Group;
-      if (this.buildMinionModel) {
-        const result = this.buildMinionModel(team);
-        mesh = result.mesh;
-        this.forwardAngles.set(id, result.forwardAngle);
-      } else {
-        const color = team === 'blue' ? 0x4488ff : 0xff4444;
-        const geometry = new THREE.BoxGeometry(0.6, 0.8, 0.6);
-        const material = new THREE.MeshLambertMaterial({ color });
-        mesh = new THREE.Group();
-        mesh.add(new THREE.Mesh(geometry, material));
-        this.forwardAngles.set(id, 0);
-      }
-      mesh.position.set(minion.x, minion.y, minion.z);
-      // チーム方向に向ける: Blue→+Z方向(0), Red→-Z方向(π)
-      mesh.rotation.y = team === 'red' ? Math.PI : 0;
-      // HPバーをメッシュの子として追加（ミニオンと一緒に動く）
-      const hpBar = createHealthBar(minion.height);
-      mesh.add(hpBar);
-      this.healthBars.set(id, hpBar);
-      this.scene.add(mesh);
-      this.meshes.set(id, mesh);
-      this.walkAnimators.set(id, new WalkAnimator());
-      this.attackAnimators.set(id, new AttackAnimator());
+    // Create mesh (use model builder if provided, else placeholder box)
+    let mesh: THREE.Group;
+    if (this.buildMinionModel) {
+      const result = this.buildMinionModel(team);
+      mesh = result.mesh;
+      this.forwardAngles.set(id, result.forwardAngle);
+    } else {
+      const color = team === 'blue' ? 0x4488ff : 0xff4444;
+      const geometry = new THREE.BoxGeometry(0.6, 0.8, 0.6);
+      const material = new THREE.MeshLambertMaterial({ color });
+      mesh = new THREE.Group();
+      mesh.add(new THREE.Mesh(geometry, material));
+      this.forwardAngles.set(id, 0);
     }
+    mesh.position.set(minion.x, minion.y, minion.z);
+    // チーム方向に向ける: Blue→+Z方向(0), Red→-Z方向(π)
+    mesh.rotation.y = team === 'red' ? Math.PI : 0;
+    // HPバーをメッシュの子として追加（ミニオンと一緒に動く）
+    const hpBar = createHealthBar(minion.height);
+    mesh.add(hpBar);
+    this.healthBars.set(id, hpBar);
+    this.scene.add(mesh);
+    this.meshes.set(id, mesh);
+    this.walkAnimators.set(id, new WalkAnimator());
+    this.attackAnimators.set(id, new AttackAnimator());
   }
 
   getAllMinions(): Minion[] { return this.minions; }
