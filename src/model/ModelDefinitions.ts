@@ -87,9 +87,9 @@ export const SHEEP_MODEL: ModelDefinition = {
     // Head: rotationPoint(0,6,-8) → pivot(0, 18, 8)
     { name: 'head',          size: [6, 6, 8],   pivot: [0, 18, 8],   offset: [0, 1, 2],    skinRegion: { originX: 0,  originY: 0,  w: 6, h: 6, d: 8 } },
     // Body: rotationPoint(0,5,2) → pivot(0, 19, -2), rotateAngleX=PI/2 → -PI/2
-    // offset調整: 回転前のローカル座標で (0, 4, -2)
-    // offset: 元値(0,4,-2)から2px下(localZ-2)、6px前方(localY-6) → (0,-2,-4)
-    { name: 'body',          size: [8, 16, 6],  pivot: [0, 19, -2],  offset: [0, -2, -4],  skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
+    // mcBoxCenter = (0, -2, -4), ワールドoffset = (0, 2, 4)
+    // ローカル逆変換(-PI/2 X): localY = -worldZ = -4, localZ = worldY = 2
+    { name: 'body',          size: [8, 16, 6],  pivot: [0, 19, -2],  offset: [0, -4, 2],   skinRegion: { originX: 28, originY: 8,  w: 8, h: 16, d: 6 }, initialRotation: [-Math.PI / 2, 0, 0] },
     // Leg3 (rightFront): rotationPoint(-3,12,-5) → pivot(-3, 12, 5)
     { name: 'rightFrontLeg', size: [4, 12, 4],  pivot: [-3, 12, 5],  offset: [0, -6, 0],   skinRegion: { originX: 0,  originY: 16, w: 4, h: 12, d: 4 } },
     // Leg4 (leftFront): rotationPoint(3,12,-5) → pivot(3, 12, 5)

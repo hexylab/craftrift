@@ -63,8 +63,8 @@ describe('SHEEP_MODEL Minecraft compliance', () => {
 
   it('body offset converts from MC addBox(-4,-10,-7, 8,16,6) with -PI/2 X rotation', () => {
     const body = SHEEP_MODEL.parts.find(p => p.name === 'body')!;
-    // From base (0,4,-2): 2px down (localZ-2), 6px forward (localY-6) → (0,-2,-4)
-    expect(body.offset).toEqual([0, -2, -4]);
+    // mcBoxCenter=(0,-2,-4), worldOffset=(0,2,4), localInverse(-PI/2 X): (0,-4,2)
+    expect(body.offset).toEqual([0, -4, 2]);
   });
 
   it('leg offsets convert from MC addBox(-2,0,-2, 4,12,4)', () => {
