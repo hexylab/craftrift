@@ -22,7 +22,7 @@ function makeTower(team: 'blue' | 'red' = 'red', x = 8, y = 4, z = 136): Structu
 }
 
 function makeMinion(id: string, team: 'blue' | 'red', x: number, y: number, z: number): Minion {
-  return new Minion(id, team, x, y, z);
+  return new Minion(id, team, x, y, z, 1);
 }
 
 describe('TowerAI', () => {

@@ -11,7 +11,7 @@ import { Structure } from './Structure';
 import { BlockType } from '../world/Block';
 
 function makeMinion(id: string, team: 'blue' | 'red', x = LANE_CENTER_X, y = 0, z = 50): Minion {
-  return new Minion(id, team, x, y, z);
+  return new Minion(id, team, x, y, z, 1);
 }
 
 function makeTower(
