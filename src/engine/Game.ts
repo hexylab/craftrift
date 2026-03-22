@@ -32,6 +32,9 @@ import {
   applyFlashToMesh,
   DamageFlashState,
 } from '../model/DamageFlash';
+import { DropTable } from '../systems/DropTable';
+import { DropSystem } from '../systems/DropSystem';
+import { Inventory } from '../systems/Inventory';
 
 export class Game {
   private renderer!: Renderer;
@@ -61,6 +64,9 @@ export class Game {
   private playerWalkAnimator!: WalkAnimator;
   private playerAttackAnimator!: AttackAnimator;
   private playerFlash: DamageFlashState = createDamageFlash();
+  private gameElapsedTime = 0;
+  private dropSystem!: DropSystem;
+  private inventory!: Inventory;
 
   async init(): Promise<void> {
     const testCanvas = document.createElement('canvas');
@@ -83,6 +89,8 @@ export class Game {
     this.structures = structures;
     this.combatSystem = new CombatSystem();
     this.hud = new HUD();
+    this.inventory = new Inventory();
+    this.dropSystem = new DropSystem(new DropTable(), this.inventory);
     this.playerState = new PlayerState();
     this.playerState.onDeath(() => {
       // 将来のインベントリドロップ拡張ポイント
@@ -181,6 +189,8 @@ export class Game {
 
     // === シミュレーション（常に実行、Pointer Lock不要） ===
 
+    this.gameElapsedTime += dt;
+
     // PlayerState更新（リスポーン判定）
     const respawned = this.playerState.update(dt);
     if (respawned) {
@@ -214,6 +224,21 @@ export class Game {
       z: this.player.z,
       isAlive: this.playerState.isAlive,
     });
+
+    // キルイベント処理 → ドロップ判定
+    const killEvents = this.minionWaveManager.consumeKillEvents();
+    if (killEvents.length > 0) {
+      const drops = this.dropSystem.processKillEvents(
+        killEvents,
+        this.player.x,
+        this.player.z,
+        this.gameElapsedTime,
+      );
+      if (drops.length > 0) {
+        this.hud.showMaterialDrop(drops);
+      }
+      this.hud.updateInventoryDisplay(this.inventory.getAll());
+    }
 
     // ミニオンからプレイヤーへのダメージ処理
     const minionDamage = this.minionWaveManager.consumePlayerDamage();
@@ -281,7 +306,7 @@ export class Game {
         // ミニオンへのヒット
         const minion = hit.target as Entity;
         if (minion.isAlive) {
-          minion.takeDamage(hit.damage);
+          minion.takeDamage(hit.damage, 'tower');
           const kb = this.minionWaveManager.getKnockback(minion.id);
           if (kb) {
             const tower = this.towerAIs.find((ai) => ai.structure.team === hit.team);
@@ -461,7 +486,7 @@ export class Game {
       } else if (result.reason === 'no_target' || result.reason === 'cooldown') {
         // ミニオンへの攻撃（構造物がなければ）
         if (targetMinion && result.reason !== 'cooldown') {
-          targetMinion.takeDamage(ATTACK_DAMAGE);
+          targetMinion.takeDamage(ATTACK_DAMAGE, 'player');
           this.minionWaveManager.triggerMinionFlash(targetMinion.id);
         } else if (blockHit && result.reason !== 'cooldown') {
           if (this.blockInteraction.breakBlock(blockHit)) {

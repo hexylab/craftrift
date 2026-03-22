@@ -3,6 +3,7 @@ import { Minion } from './Minion';
 import { MinionAI, PlayerInfo } from './MinionAI';
 import { Structure } from './Structure';
 import { Team } from './Entity';
+import { KillEvent, DamageSource } from '../systems/types';
 import { KnockbackState, createKnockbackState } from '../physics/Knockback';
 import {
   applyGravity,
@@ -51,6 +52,7 @@ export class MinionWaveManager {
   private pendingSpawns = 0; // 現在のウェーブで未スポーンのミニオン数
   private spawnStaggerTimer = 0; // 次のスポーンまでのタイマー
   private pendingPlayerDamage = 0;
+  private pendingKillEvents: KillEvent[] = [];
 
   constructor(
     private scene: THREE.Scene,
@@ -138,7 +140,8 @@ export class MinionWaveManager {
             this.minions.find((m) => m.id === result.targetId) ??
             this.structures.find((s) => s.id === result.targetId);
           if (target && target.isAlive) {
-            target.takeDamage(result.damage);
+            const damageSource: DamageSource = `${minion.team}-minion`;
+            target.takeDamage(result.damage, damageSource);
             // ダメージを受けたミニオンにフラッシュを発動
             const targetFlash = this.damageFlashes.get(result.targetId);
             if (targetFlash) triggerFlash(targetFlash);
@@ -272,9 +275,16 @@ export class MinionWaveManager {
       }
     }
 
-    // Remove dead minions
+    // Remove dead minions — キルイベントを生成してからクリーンアップ
     const dead = this.minions.filter((m) => !m.isAlive);
     for (const m of dead) {
+      if (m.lastDamagedBy) {
+        this.pendingKillEvents.push({
+          killedMinion: { x: m.x, z: m.z, team: m.team },
+          killedBy: m.lastDamagedBy,
+          waveNumber: m.waveNumber,
+        });
+      }
       const mesh = this.meshes.get(m.id);
       if (mesh) {
         this.scene.remove(mesh);
@@ -295,7 +305,7 @@ export class MinionWaveManager {
   private spawnSingleMinion(team: Team, index: number): void {
     const z = team === 'blue' ? BLUE_SPAWN_Z : RED_SPAWN_Z;
     const id = `${team}-minion-w${this.waveCount}-${index}`;
-    const minion = new Minion(id, team, SPAWN_X, SPAWN_Y, z);
+    const minion = new Minion(id, team, SPAWN_X, SPAWN_Y, z, this.waveCount);
     this.minions.push(minion);
     this.ais.set(id, new MinionAI(minion));
     this.knockbacks.set(id, createKnockbackState());
@@ -344,6 +354,13 @@ export class MinionWaveManager {
     const d = this.pendingPlayerDamage;
     this.pendingPlayerDamage = 0;
     return d;
+  }
+
+  /** ミニオンのキルイベントを取得してリセット */
+  consumeKillEvents(): KillEvent[] {
+    const events = this.pendingKillEvents;
+    this.pendingKillEvents = [];
+    return events;
   }
 
   /** 外部（Game.ts）からミニオンのダメージフラッシュを発動 */

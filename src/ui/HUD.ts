@@ -2,6 +2,7 @@
 import { Structure } from '../entity/Structure';
 import { AttackResult } from '../entity/CombatSystem';
 import { DAMAGE_FLASH_DURATION } from '../config/GameBalance';
+import { MaterialDrop, MaterialType } from '../systems/types';
 
 export { DAMAGE_FLASH_DURATION };
 
@@ -20,6 +21,9 @@ export class HUD {
   private towerWarningEl: HTMLElement | null;
   private damageFlashEl: HTMLElement | null;
   private damageFlashTimer: number = 0;
+  private materialDropEl: HTMLElement | null;
+  private materialDropTimer: ReturnType<typeof setTimeout> | null = null;
+  private materialInventoryEl: HTMLElement | null;
 
   constructor() {
     this.targetInfoEl = document.getElementById('target-info');
@@ -34,6 +38,8 @@ export class HUD {
     this.respawnTimerEl = document.getElementById('respawn-timer');
     this.towerWarningEl = document.getElementById('tower-warning');
     this.damageFlashEl = document.getElementById('damage-flash');
+    this.materialDropEl = document.getElementById('material-drop-notification');
+    this.materialInventoryEl = document.getElementById('material-inventory');
   }
 
   showTarget(structure: Structure): void {
@@ -133,6 +139,58 @@ export class HUD {
     if (this.towerWarningEl) {
       this.towerWarningEl.style.display = 'none';
     }
+  }
+
+  private static readonly MATERIAL_COLORS: Record<MaterialType, string> = {
+    wood: '#c4a05e',
+    stone: '#aaaaaa',
+    iron: '#e8e8e8',
+    diamond: '#5ce8d6',
+  };
+
+  private static readonly MATERIAL_NAMES: Record<MaterialType, string> = {
+    wood: '木',
+    stone: '石',
+    iron: '鉄',
+    diamond: 'ダイヤ',
+  };
+
+  private createMaterialSpan(type: MaterialType, text: string): HTMLSpanElement {
+    const span = document.createElement('span');
+    span.style.color = HUD.MATERIAL_COLORS[type];
+    span.textContent = text;
+    return span;
+  }
+
+  showMaterialDrop(drops: MaterialDrop[]): void {
+    if (!this.materialDropEl || drops.length === 0) return;
+
+    this.materialDropEl.textContent = '';
+    drops.forEach((d, i) => {
+      if (i > 0) this.materialDropEl!.appendChild(document.createTextNode(' / '));
+      this.materialDropEl!.appendChild(
+        this.createMaterialSpan(d.type, `${HUD.MATERIAL_NAMES[d.type]} x${d.amount}`),
+      );
+    });
+    this.materialDropEl.appendChild(document.createTextNode(' 獲得'));
+    this.materialDropEl.style.display = 'block';
+
+    if (this.materialDropTimer) clearTimeout(this.materialDropTimer);
+    this.materialDropTimer = setTimeout(() => {
+      if (this.materialDropEl) this.materialDropEl.style.display = 'none';
+    }, 2000);
+  }
+
+  updateInventoryDisplay(materials: Record<MaterialType, number>): void {
+    if (!this.materialInventoryEl) return;
+    this.materialInventoryEl.textContent = '';
+    const types: MaterialType[] = ['wood', 'stone', 'iron', 'diamond'];
+    types.forEach((type, i) => {
+      if (i > 0) this.materialInventoryEl!.appendChild(document.createTextNode(' '));
+      this.materialInventoryEl!.appendChild(
+        this.createMaterialSpan(type, `${HUD.MATERIAL_NAMES[type]}:${materials[type]}`),
+      );
+    });
   }
 
   triggerDamageFlash(): void {

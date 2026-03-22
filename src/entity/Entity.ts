@@ -1,3 +1,5 @@
+import { DamageSource } from '../systems/types';
+
 export type Team = 'blue' | 'red';
 
 export class Entity {
@@ -20,7 +22,7 @@ export class Entity {
     this.maxHp = maxHp;
   }
 
-  takeDamage(amount: number): void {
+  takeDamage(amount: number, _source?: DamageSource): void {
     if (!this.isAlive || amount <= 0) return;
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp === 0) {
